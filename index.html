@@ -384,6 +384,20 @@ async function loadFiles(){
   await pool(ok(INDEX.prices),6,async t=>{const p=await getJson(DATA_BASE+"prices/"+t+".json");if(p)ingestPx(t,p,false);});
   return true;
 }
+async function loadStoredOne(t){
+  let loaded=false;
+  if(!FINS[t]){const o=await getJson(DATA_BASE+t+".json");if(o)loaded=ingestFin(o,false)||loaded;}
+  if(!PX[t]){const p=await getJson(DATA_BASE+"prices/"+t+".json");if(p)loaded=ingestPx(t,p,false)||loaded;}
+  if(loaded)rebuild();
+  return loaded;
+}
+async function selectStock(t){
+  D.sel=t;go(2);
+  await loadStoredOne(t);
+  const s=SMAP.get(t);
+  if(s&&!s.hasFin&&!s.hasPx)addMany([t]);
+  else renderAll();
+}
 
 /* =================== Worker và nạp theo yêu cầu =================== */
 const wk=()=>finWorker();
@@ -969,7 +983,7 @@ function viewTech(){
 function openSheet(){
   const sh=$("sheet"),ws=Object.keys(FINS).length,ps=Object.keys(PX).length,st=STATUS,keys=Object.keys(USER).length;
   let stt='<p class="text-sm text-muted">Chưa có data/status.json. Chạy GitHub Action ở tab Actions của repo để tạo dữ liệu.</p>';
-  if(st){const pr=st.prices||{};stt='<p class="text-sm">Lần chạy gần nhất: <b>'+esc(String(st.run_at||"").replace("T"," ").slice(0,16))+'</b> (UTC)</p><p class="text-sm">Báo cáo: '+((st.bctc&&st.bctc.ok)||0)+' mã được, '+((st.bctc&&st.bctc.fail)||0)+' mã lỗi.</p>'+
+  if(st){const pr=st.prices||{},ub=st.universe_batch;stt='<p class="text-sm">Lần chạy gần nhất: <b>'+esc(String(st.run_at||"").replace("T"," ").slice(0,16))+'</b> (UTC)</p><p class="text-sm">Báo cáo: '+((st.bctc&&st.bctc.ok)||0)+' mã được, '+((st.bctc&&st.bctc.fail)||0)+' mã lỗi.</p>'+(ub?'<p class="text-xs text-muted">Lô universe '+(ub.index+1)+'/'+ub.count+': '+ub.ok+' mã được, '+ub.fail+' mã lỗi · '+ub.retry_next_run+' mã sẽ thử lại lượt sau.</p>':'')+
     '<ul class="mt-1 text-sm">'+Object.keys(pr).map(k=>'<li>Giá '+esc(k)+': '+pr[k].ok+' mã được, '+pr[k].fail+' lần lỗi</li>').join("")+'</ul>'+((st.bctc&&st.bctc.errors&&st.bctc.errors.length)?'<details class="mt-2"><summary class="cursor-pointer text-xs text-brass">Lỗi báo cáo gần nhất</summary><p class="mt-1 break-words font-mono text-xs text-muted">'+st.bctc.errors.slice(0,5).map(esc).join("<br>")+'</p></details>':'');}
   const sec=(h,b)=>'<section class="'+card+' p-4"><h2 class="mb-2 font-semibold">'+h+'</h2>'+b+'</section>';
   sh.innerHTML='<div class="mx-auto max-w-2xl space-y-4 safe-x py-4"><div class="flex items-center justify-between"><h1 class="text-lg font-semibold">Dữ liệu</h1><button type="button" data-act="closeSheet" class="'+BTN+'" id="shClose">Đóng</button></div>'+
@@ -988,7 +1002,7 @@ function matchPreset(){const d=defaultFilters(),F=D.F;const base=k=>k!=="query"&
 document.addEventListener("click",e=>{
   const g=s=>e.target.closest(s);let x;
   if((x=g("[data-watch]"))){e.stopPropagation();const t=x.dataset.watch,i=D.watch.indexOf(t);if(i<0)D.watch.push(t);else D.watch.splice(i,1);saveDesk();if(D.step===1)renderRes();else renderView();return;}
-  if((x=g("[data-pick]"))){D.sel=x.dataset.pick;go(2);const s=SMAP.get(D.sel);if(s&&!s.hasFin&&!s.hasPx)addMany([D.sel]);return;}
+  if((x=g("[data-pick]"))){selectStock(x.dataset.pick);return;}
   if((x=g("[data-step]"))){go(+x.dataset.step);return;}
   if((x=g("[data-preset]"))){const p=PRESETS.find(q=>q.id===x.dataset.preset),q=D.F.query;D.F=Object.assign(defaultFilters(),p.patch,{query:q,preset:p.id});saveDesk();viewScreen();return;}
   if((x=g("[data-clear]"))){const k=x.dataset.clear,d=defaultFilters();D.F[k]=d[k];D.F.preset=matchPreset();saveDesk();viewScreen();return;}
@@ -1022,7 +1036,7 @@ document.addEventListener("change",e=>{
   if(t.dataset&&t.dataset.f){const n=t.value===""?null:Number(t.value);D.more=true;setF(t.dataset.f,n!=null&&isFinite(n)?n:null);viewScreen();}
   else if(t.dataset&&t.dataset.fb){D.more=true;setF(t.dataset.fb,t.checked);viewScreen();}
   else if(t.id==="sortSel"){D.sortKey=t.value;D.sortDir=t.value==="t"?1:-1;saveDesk();renderRes();}
-  else if(t.id==="selT"){D.sel=t.value;saveDesk();renderView();const s=SMAP.get(D.sel);if(s&&!s.hasFin&&!s.hasPx)addMany([D.sel]);}
+  else if(t.id==="selT"){selectStock(t.value);}
   else if(t.id==="disc"){D.discount=Number(t.value)/100;saveDesk();viewValue();}
   else if(t.id==="gro"){const n=t.value===""?null:Number(t.value);D.growth=n!=null&&isFinite(n)?n:null;saveDesk();viewValue();}
 });

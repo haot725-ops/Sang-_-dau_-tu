@@ -13,6 +13,15 @@ on:
         description: "bctc hoặc prices. Để trống để lấy cả hai"
         required: false
         default: ""
+      universe_batch:
+        description: "Chạy thêm một lô BCTC luân phiên từ universe.json"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: sang-market-data-update
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -31,11 +40,19 @@ jobs:
         env:
           IN_TICKERS: ${{ github.event.inputs.tickers }}
           IN_ONLY: ${{ github.event.inputs.only }}
+          RUN_UNIVERSE_BATCH: ${{ github.event_name == 'schedule' || inputs.universe_batch }}
         run: |
           ARGS=""
           if [ -n "$IN_TICKERS" ]; then ARGS="$ARGS --tickers $IN_TICKERS"; fi
           if [ "$IN_ONLY" = "bctc" ] || [ "$IN_ONLY" = "prices" ]; then ARGS="$ARGS --only $IN_ONLY"; fi
-          python fetch_data.py $ARGS
+          if ! python fetch_data.py $ARGS; then
+            echo "::warning::Lần cập nhật nhóm cốt lõi có mã lỗi; xem data/status.json."
+          fi
+          if [ "$RUN_UNIVERSE_BATCH" = "true" ]; then
+            if ! python fetch_data.py --universe-batch --only bctc --merge-status; then
+              echo "::warning::Lô BCTC universe có mã lỗi; xem data/status.json và data/state/universe_retry.json."
+            fi
+          fi
       - name: Lưu vào repo
         run: |
           git config user.name "github-actions"

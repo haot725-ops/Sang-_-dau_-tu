@@ -10,9 +10,9 @@ Settings → Pages → Deploy from branch → `main` / root. Thư mục `.github
 
 ## 2. Dữ liệu định kỳ và mã ngoài nhóm hiện có
 
-Tab Actions → “Lấy dữ liệu” → Run workflow để tạo/cập nhật `data/`. Action tự chạy lúc 16:40 giờ Việt Nam từ thứ 2 đến thứ 6. Xem trạng thái ở `data/status.json` hoặc trong mục “Dữ liệu” của app.
+Tab Actions → “Cập nhật số liệu (báo cáo CafeF và giá)” → Run workflow để tạo/cập nhật `data/`. Lịch tự chạy lúc 16:40 giờ Việt Nam từ thứ Hai đến thứ Sáu. Lịch giữ nguyên việc lấy báo cáo và giá cho 57 mã cốt lõi; đồng thời mỗi lần chạy xử lý thêm một lô BCTC luân phiên 200 mã ngoài nhóm đó. Như vậy 1.461 mã còn lại được quét đủ trong khoảng 8 ngày làm việc (thường 1,5–2 tuần). Tối đa 50 mã lỗi ở lô trước được ưu tiên thử lại trong lần chạy sau. Lịch sử giá định kỳ vẫn chỉ cập nhật cho nhóm 57 mã. Xem trạng thái batch, lỗi và con trỏ ở `data/status.json` và `data/state/`.
 
-`tickers.json` vẫn là nhóm 57 mã dùng cho crawler định kỳ; không tự động tải BCTC/giá cho cả universe. Ở “Tầm soát”, có thể tìm mã trong snapshot và chọn mã để nạp riêng. Việc nạp theo lựa chọn cần Worker trung gian hoạt động; app gọi BCTC CafeF và lịch sử giá cho mã đó. Khi thiếu Worker, nguồn chặn, mã không có dữ liệu hoặc dữ liệu không đủ phiên, app sẽ không coi mã như đã có dữ liệu và sẽ báo trạng thái/lỗi.
+`tickers.json` vẫn là nhóm 57 mã dùng cho báo cáo và giá định kỳ; các mã ngoài nhóm được bổ sung tự động theo lô cho BCTC, không quét lịch sử giá định kỳ. Lô được chọn từ `universe.json` và con trỏ `data/state/universe_cursor.json` được lưu cùng dữ liệu để các lần chạy tiếp tục tuần tự. Nút `universe_batch` trong Run workflow cho phép chạy thêm một lô ngay khi chạy thủ công. App đọc trước tối đa 300 hồ sơ lúc khởi động để nhẹ trên điện thoại; khi chọn mã khác, app tải hồ sơ mới nhất đã lưu trong repo theo mã đó rồi mới dùng Worker làm phương án dự phòng. Khi nguồn chặn hoặc lỗi, mã được ghi vào hàng đợi retry; dữ liệu cũ được giữ nguyên.
 
 ## 3. Worker trung gian (cần cho mã ngoài dữ liệu định kỳ và quote)
 

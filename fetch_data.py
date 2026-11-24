@@ -37,6 +37,40 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
       "Accept": "application/json, text/plain, */*"}
 KEEP = 260          # số phiên giữ lại (đủ cho MA50 và 9 tháng biểu đồ)
 MIN_BARS = 60       # ít hơn mức này coi là nguồn lỗi
+UNIVERSE_FILE = Path("universe.json")
+UNIVERSE_BATCH_SIZE = 200
+UNIVERSE_RETRY_LIMIT = 50
+
+# Đồng bộ với nhóm phân loại tài chính trong index.html. Chỉ định kiểu báo cáo
+# chuyên biệt khi có mã được nhận diện rõ; mã khác giữ nhóm doanh nghiệp chung.
+BANK_TICKERS = set("VCB BID CTG TCB MBB ACB VPB HDB STB SHB TPB LPB MSB OCB EIB VIB SSB ABB BAB BVB KLB NAB NVB PGB SGB VAB".split())
+BROKER_TICKERS = set("SSI VND VCI HCM SHS MBS FTS BSI CTS AGR VDS ORS TVS APS BVS VIX SBS DSC PSI WSS".split())
+REAL_ESTATE_TICKERS = set("NVL VHM VIC VRE KDH DXG DIG CEO PDR NLG KBC IDC SZC HDG HDC TCH SCR NTL CRE LDG QCG HQC ITC AGG NBB SJS TDH DXS KHG L14 D2D SIP BCM".split())
+
+
+def report_sector(ticker: str, configured: str | None = None) -> str:
+    """Chọn schema CafeF theo metadata đã biết, không suy diễn từ nhãn Finance chung."""
+    if configured in {"nganhang", "ck", "bds", "chung"}:
+        return configured
+    if ticker in BANK_TICKERS:
+        return "nganhang"
+    if ticker in BROKER_TICKERS:
+        return "ck"
+    if ticker in REAL_ESTATE_TICKERS:
+        return "bds"
+    return "chung"
+
+
+def select_universe_batch(universe_file: Path, core: set[str], shard_size: int,
+                          shard_index: int) -> tuple[list[str], int]:
+    """Trả về lô xoay vòng mã ngoài tickers.json và tổng số lô."""
+    data = json.loads(universe_file.read_text(encoding="utf-8"))
+    all_tickers = sorted({str(x.get("t", "")).upper() for x in data.get("stocks", [])
+                          if isinstance(x, dict) and x.get("t")})
+    extra = [t for t in all_tickers if t not in core]
+    count = max(1, (len(extra) + shard_size - 1) // shard_size)
+    idx = shard_index % count
+    return extra[idx * shard_size:(idx + 1) * shard_size], count
 
 
 class SourceError(Exception):
@@ -153,6 +187,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--config", type=Path, default=Path("tickers.json"))
     ap.add_argument("--out", type=Path, default=Path("data"))
     ap.add_argument("--only", choices=["bctc", "prices"])
+    ap.add_argument("--universe-batch", action="store_true",
+                    help="Lấy thêm một lô BCTC xoay vòng từ universe.json")
+    ap.add_argument("--universe-file", type=Path, default=UNIVERSE_FILE)
+    ap.add_argument("--batch-size", type=int, default=UNIVERSE_BATCH_SIZE)
+    ap.add_argument("--merge-status", action="store_true",
+                    help="Gộp status nhóm lõi vừa chạy trong cùng workflow")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
 
@@ -163,19 +203,51 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as e:
             log.error("Không đọc được %s: %s", a.config, e)
             return 2
-    tickers = [t.upper() for t in a.tickers] if a.tickers else list(cfg)
-    if not tickers:
+    tickers = list(dict.fromkeys(t.upper() for t in a.tickers)) if a.tickers else list(cfg)
+    if a.universe_batch and not a.tickers:
+        tickers = []
+    if not tickers and not a.universe_batch:
         log.error("Chưa có mã nào. Tạo tickers.json hoặc dùng --tickers")
+        return 2
+    if a.batch_size < 1:
+        log.error("--batch-size phải lớn hơn 0")
         return 2
 
     (a.out / "prices").mkdir(parents=True, exist_ok=True)
     session = requests.Session()
     status: dict[str, Any] = {"run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bctc": {"ok": 0, "fail": 0, "errors": []}}
+    core = set(cfg) if a.universe_batch else set(tickers)
+    cursor_path = a.out / "state" / "universe_cursor.json"
+    retry_path = a.out / "state" / "universe_retry.json"
+    shard_tickers: list[str] = []
+    shard_index = 0
+    shard_count = 0
+    retries: list[str] = []
+    deferred_retries: list[str] = []
+    if a.universe_batch:
+        try:
+            cursor = json.loads(cursor_path.read_text(encoding="utf-8")) if cursor_path.exists() else {}
+            shard_index = max(0, int(cursor.get("next_shard", 0)))
+            shard_tickers, shard_count = select_universe_batch(a.universe_file, core, a.batch_size, shard_index)
+            if retry_path.exists():
+                raw_retry = json.loads(retry_path.read_text(encoding="utf-8"))
+                retry_queue = list(dict.fromkeys(str(t).upper() for t in raw_retry
+                                                  if isinstance(t, str) and t.upper() not in core))
+                retries = retry_queue[:UNIVERSE_RETRY_LIMIT]
+                deferred_retries = retry_queue[UNIVERSE_RETRY_LIMIT:]
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as e:
+            log.error("Không tạo được lô universe: %s", e)
+            return 2
+        shard_tickers = list(dict.fromkeys(retries + [t for t in shard_tickers if t not in retries]))
+        deferred_retries = [t for t in deferred_retries if t not in shard_tickers]
+        status["universe_batch"] = {"index": shard_index % shard_count, "count": shard_count,
+                                    "batch_size": a.batch_size, "scheduled_symbols": len(shard_tickers),
+                                    "retry_symbols": len(retries), "ok": 0, "fail": 0, "errors": []}
     done = 0
     for t in tickers:
         if a.only != "prices":
             try:
-                data = cafef_fetch.fetch_ticker(t, cfg.get(t, "chung"), session)
+                data = cafef_fetch.fetch_ticker(t, report_sector(t, cfg.get(t)), session)
                 (a.out / f"{t}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
                 status["bctc"]["ok"] += 1
                 done += 1
@@ -193,10 +265,51 @@ def main(argv: list[str] | None = None) -> int:
                 log.error("Giá %s: mọi nguồn đều lỗi, giữ dữ liệu cũ", t)
         time.sleep(0.5)
 
+    failed_universe: list[str] = []
+    for t in shard_tickers:
+        try:
+            data = cafef_fetch.fetch_ticker(t, report_sector(t), session)
+            (a.out / f"{t}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            status["bctc"]["ok"] += 1
+            status["universe_batch"]["ok"] += 1
+            done += 1
+            log.info("universe %s: đã lưu %d kỳ", t, len(data["is"]["periods"]))
+        except cafef_fetch.FetchError as e:
+            failed_universe.append(t)
+            status["bctc"]["fail"] += 1
+            status["bctc"]["errors"].append(str(e)[:200])
+            status["universe_batch"]["fail"] += 1
+            status["universe_batch"]["errors"].append(str(e)[:200])
+            log.error("Bỏ qua universe %s, giữ dữ liệu cũ: %s", t, e)
+    if a.universe_batch:
+        cursor_path.parent.mkdir(parents=True, exist_ok=True)
+        cursor_path.write_text(json.dumps({"next_shard": (shard_index + 1) % shard_count,
+                                           "last_shard": shard_index % shard_count,
+                                           "shards": shard_count,
+                                           "updated_at": status["run_at"]}, ensure_ascii=False, indent=2), encoding="utf-8")
+        retry_next = list(dict.fromkeys(failed_universe + deferred_retries))
+        retry_path.write_text(json.dumps(retry_next, ensure_ascii=False, indent=2), encoding="utf-8")
+        status["universe_batch"]["retry_next_run"] = len(retry_next)
+
     have_f = sorted(p.stem for p in a.out.glob("*.json") if p.stem not in ("index", "status"))
     have_p = sorted(p.stem for p in (a.out / "prices").glob("*.json"))
     (a.out / "index.json").write_text(json.dumps({"tickers": have_f, "prices": have_p, "updated": status["run_at"]}, ensure_ascii=False), encoding="utf-8")
-    (a.out / "status.json").write_text(json.dumps(status, ensure_ascii=False, indent=1), encoding="utf-8")
+    status_path = a.out / "status.json"
+    if a.merge_status and status_path.exists():
+        try:
+            previous = json.loads(status_path.read_text(encoding="utf-8"))
+            prev_at = datetime.fromisoformat(str(previous.get("run_at", "")).replace("Z", "+00:00"))
+            now_at = datetime.fromisoformat(status["run_at"])
+            if -timedelta(minutes=2) <= now_at - prev_at <= timedelta(hours=2):
+                old_bctc = previous.get("bctc", {})
+                status["bctc"]["ok"] += int(old_bctc.get("ok", 0))
+                status["bctc"]["fail"] += int(old_bctc.get("fail", 0))
+                status["bctc"]["errors"] = (old_bctc.get("errors", []) + status["bctc"]["errors"])[:300]
+                status["prices"] = previous.get("prices", {})
+                status["core_run_at"] = previous.get("run_at")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            log.warning("Không thể gộp status lượt trước; ghi status batch hiện tại")
+    status_path.write_text(json.dumps(status, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0 if done else 1   # chỉ báo lỗi khi không lấy được gì, để Action vẫn lưu phần đã lấy
 
 
