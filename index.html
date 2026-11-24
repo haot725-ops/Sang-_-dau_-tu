@@ -310,6 +310,10 @@ FS.pthdh=["bs",["210"],/các khoản phải thu dài hạn/i];FS.tsdh=["bs",["20
 FS.gv=["is",["11"],/giá vốn hàng bán/i];FS.lnhd=["is",["30"],/lợi nhuận thuần từ hoạt động kinh doanh/i];
 FS.loan=["bs",[],/cho vay khách hàng/i];FS.dep=["bs",[],/tiền gửi của khách hàng/i];FS.nii=["is",[],/thu nhập lãi thuần/i];
 FS.opex=["is",[],/chi phí hoạt động/i];FS.prov=["is",[],/dự phòng rủi ro tín dụng/i];FS.qlck=["is",[],/chi phí quản lý công ty chứng khoán/i];FS.fvtpl=["bs",[],/fvtpl/i];
+FS.lkpl=["is",["27"],/phần lãi\/lỗ trong công ty liên doanh|lãi.*công ty liên doanh, liên kết/i];FS.dtlk=["bs",["252"],/đầu tư vào công ty liên kết/i];
+FS.dttc=["is",["22"],/doanh thu hoạt động tài chính/i];FS.cptc=["is",["23"],/^(\d+\.\s*)?chi phí tài chính/i];FS.cpbh=["is",["25"],/chi phí bán hàng/i];FS.cpql=["is",["26"],/chi phí quản lý doanh nghiệp/i];
+FS.khauhao=["cf",[],/khấu hao/i];FS.xdcb=["bs",["242"],/xây dựng cơ bản dở dang/i];FS.cptrdh=["bs",["261"],/chi phí (chờ phân bổ|trả trước) dài hạn/i];
+FS.dtchuanh=["bs",["318"],/doanh thu (chờ phân bổ|chưa thực hiện) ngắn hạn/i];FS.dtchuadh=["bs",["336"],/doanh thu (chờ phân bổ|chưa thực hiện) dài hạn/i];
 /* Ngân hàng và công ty chứng khoán có mã chỉ tiêu khác doanh nghiệp thường */
 const FSK={
   nganhang:{ts:["bs",["300"],/^tổng tài sản/i],nopt:["bs",["400"],/tổng nợ phải trả/i],vcsh:["bs",["500"],/vốn chủ sở hữu/i],vongop:["bs",["411"],/vốn điều lệ/i],minor:["bs",["700"],/cổ đông thiểu số/i],
@@ -494,7 +498,7 @@ function mk(t){
   const m=META[t]||UNIVERSE[t]||{t,n:t,f:t,x:"—",b:""},label=sectorLabel(t,f),financial=FIN_LABELS.includes(label);
   const S={t,name:m.n,full:m.f,exchange:m.x,sector:label,blurb:m.b||"",financial,hasFin:!!f,hasPx:!!px,pxSrc:px?px.src:"",asof:px?px.asof:null,fin:f||null,
     price:null,changePct:null,live:false,bars:[],pe:null,pb:null,roe:null,roa:null,netMargin:null,debtEquity:null,revGrowth:null,epsGrowth:null,divYield:null,mcap:null,eps:null,bvps:null,ps:null,shares:null,
-    kind:null,ext:null,ma20:null,ma50:null,rsi:null,macd:null,macdSignal:null,macdHist:null,avgVolume:null,avgValue:null,support:null,resistance:null,trend:null,lastVolume:null,q:null,lastP:f?f.last:null};
+    kind:null,ext:null,brk:null,eq:null,ma20:null,ma50:null,rsi:null,macd:null,macdSignal:null,macdHist:null,avgVolume:null,avgValue:null,support:null,resistance:null,trend:null,lastVolume:null,q:null,lastP:f?f.last:null};
   if(px){
     S.bars=indicators(px);const n=S.bars.length,last=S.bars[n-1],prev=S.bars[n-2];
     S.price=last.close;S.changePct=prev?(last.close/prev.close-1)*100:0;
@@ -520,8 +524,10 @@ function mk(t){
       if(S.eps>0)S.pe=S.price/S.eps;if(S.bvps>0)S.pb=S.price/S.bvps;
       if(S.eps>0&&dt>0)S.ps=S.price*S.shares/dt;
       const dp=T("divpaid");if(dp!=null)S.divYield=Math.abs(dp)/(S.price*S.shares)*100;}
+    try{S.brk=detectBreak(f);}catch(e){S.brk=null;}
     S.kind=f.sector==="nganhang"?"bank":f.sector==="ck"?"sec":"normal";
     try{S.q=S.kind==="normal"?cdScore(f):null;}catch(e){S.q=null;}
+    try{S.eq=earnQuality(S);}catch(e){S.eq=null;}
     try{S.ext=S.kind==="normal"?null:finExtras(f);}catch(e){S.ext=null;}
   }
   return S;
@@ -623,11 +629,13 @@ function qualityRows(s){
     r("Biên lợi nhuận / doanh thu",pct(s.netMargin),s.netMargin==null?"neutral":tone3(s.netMargin,35,20)),r("Đòn bẩy (tài sản / vốn chủ)",X.lev==null?"—":nv(X.lev,2)+"×",tone3(X.lev,2.5,3.5,false)),
     r("Các khoản cho vay / vốn chủ",X.marginRatio==null?"—":nv(X.marginRatio,2)+"×",tone3(X.marginRatio,1,1.6,false)),r("Tăng doanh thu",s.revGrowth==null?"—":signedPct(s.revGrowth,0),tone3(s.revGrowth,15,0)),
     r("Tăng lợi nhuận",s.epsGrowth==null?"—":signedPct(s.epsGrowth,0),tone3(s.epsGrowth,15,0)),r("P/B",s.pb==null?"—":nv(s.pb,1)+"×",tone3(s.pb,1.8,2.8,false))];
+  const dis=s.brk&&s.brk.distorted,lag=x=>{x.tag="Lệch";x.tone="neutral";return x;};
   return[
     r("ROE",pct(s.roe),s.roe==null?"neutral":s.roe<0?"bad":tone3(s.roe,bank?18:15,bank?12:10)),
     bank||s.financial?r("ROA",pct(s.roa),tone3(s.roa,1.5,1)):r("Biên lãi ròng",pct(s.netMargin),s.netMargin==null?"neutral":s.netMargin<0?"bad":tone3(s.netMargin,12,6)),
     s.debtEquity==null?r("Nợ / VCSH",s.financial?"Không dùng":"—","neutral"):r("Nợ / VCSH",nv(s.debtEquity,2),tone3(s.debtEquity,.5,1.2,false)),
-    r("Tăng doanh thu",s.revGrowth==null?"—":(s.revGrowth>0?"+":"")+nv(s.revGrowth,0)+"%",tone3(s.revGrowth,12,3)),
+    dis?lag(r("Tăng doanh thu",s.revGrowth==null?"—":(s.revGrowth>0?"+":"")+nv(s.revGrowth,0)+"%","neutral")):r("Tăng doanh thu",s.revGrowth==null?"—":(s.revGrowth>0?"+":"")+nv(s.revGrowth,0)+"%",tone3(s.revGrowth,12,3)),
+    dis?lag(r("Tăng lợi nhuận mẹ",s.epsGrowth==null?"—":(s.epsGrowth>0?"+":"")+nv(s.epsGrowth,0)+"%","neutral")):r("Tăng lợi nhuận mẹ",s.epsGrowth==null?"—":(s.epsGrowth>0?"+":"")+nv(s.epsGrowth,0)+"%",tone3(s.epsGrowth,12,3)),
     r("Cổ tức (ước tính)",pct(s.divYield),s.divYield==null||s.divYield<=0?"neutral":tone3(s.divYield,bank?2:4,1)),
     r("P/B",s.pb==null?"—":nv(s.pb,1)+"×",tone3(s.pb,bank?1.2:1.5,bank?2:2.5,false))
   ];
@@ -761,6 +769,259 @@ function ratioGroups(s){
   ];
 }
 
+/* =================== Phát hiện báo cáo đổi phạm vi hợp nhất =================== */
+function detectBreak(f){
+  const per=f.per,n=per.length,res=[];
+  for(let i=Math.max(1,n-8);i<n;i++){
+    const p=per[i],pp=per[i-1];if(pn(p)-pn(pp)!==1)continue;
+    const ts=fv(f,"ts",p),ts0=fv(f,"ts",pp);if(!(ts>0&&ts0>0))continue;
+    const dts=ts/ts0-1,down=dts<0,ev=[];let sc=0;
+    if(down&&dts<=-.12){ev.push("tổng tài sản giảm "+nv(-dts*100,0)+"%");sc++;}
+    else if(!down&&dts>=.25){ev.push("tổng tài sản tăng "+nv(dts*100,0)+"%");sc++;}
+    const m=fv(f,"minor",p),m0=fv(f,"minor",pp);
+    if(m!=null&&m0>0.01*ts0&&Math.abs(m/m0-1)>=.5&&((m<m0)===down)){ev.push("lợi ích cổ đông thiểu số "+(down?"giảm ":"tăng ")+nv(Math.abs(m/m0-1)*100,0)+"%");sc++;}
+    if(down){
+      const l=fv(f,"lkpl",p)||0,l0=fv(f,"lkpl",pp)||0;if(l>0.001*ts0&&(l0<=0||l/l0>=3)){ev.push("xuất hiện khoản lãi từ công ty liên kết");sc++;}
+      const d=fv(f,"dtlk",p),d0=fv(f,"dtlk",pp);if(d!=null&&d0>0&&d/d0-1>=1&&d-d0>0.02*ts0){ev.push("khoản đầu tư vào công ty liên kết tăng "+nv((d/d0-1)*100,0)+"%");sc++;}
+    }
+    if(sc>=2||(down&&dts<=-.2&&sc>=1))res.push({p,dir:down?"down":"up",ev,dts,idx:i,distorted:i>=n-7});
+  }
+  return res.length?res[res.length-1]:null;
+}
+
+/* =================== Kết luận phân tích =================== */
+function conclude(s,v){
+  const it=[],todo=[],q=s.q,b=s.brk,fin=!!s.financial,bank=s.kind==="bank",pc=(x,d=0)=>signedPct(x,d);
+  const add=(k,tone,text)=>it.push({k,tone,text});
+  const bd=b&&b.distorted;
+  /* 1. Sinh lời */
+  if(s.roe!=null){
+    const hi=bank?18:15,lo=bank?12:10,lvl=s.roe>=hi?"cao":s.roe>=lo?"khá":s.roe>=0?"thấp":"âm";
+    add("Sinh lời",s.roe>=lo?"good":s.roe>=0?"ok":"bad","ROE "+nv(s.roe,1)+"%, mức "+lvl+(s.netMargin!=null?(fin?", lợi nhuận ròng bằng "+nv(s.netMargin,0)+"% doanh thu hoạt động":", biên lợi nhuận ròng "+nv(s.netMargin,1)+"%"):"")+".");
+  }
+  /* 2. Tăng trưởng */
+  if(s.revGrowth!=null||s.epsGrowth!=null){
+    const r=s.revGrowth,e=s.epsGrowth,rs=r==null?"—":pc(r,0),es=e==null?"—":pc(e,0);
+    if(bd){
+      let t="Doanh thu hợp nhất "+rs+" và lợi nhuận công ty mẹ "+es+" so với 4 quý trước. Nhưng từ "+pL(b.p)+" báo cáo có dấu hiệu "+(b.dir==="down"?"không còn hợp nhất một phần hoạt động":"hợp nhất thêm hoạt động mới")+" ("+b.ev.join("; ")+"). ";
+      if(b.dir==="down"&&r!=null&&r<-5&&e!=null&&e>-8)t+="Doanh thu tụt nhưng lợi nhuận mẹ gần như đi ngang, nghĩa là phần doanh thu không còn đưa vào đóng góp ít cho lợi nhuận của cổ đông công ty mẹ. ";
+      t+="Vì vậy mức tăng trưởng doanh thu không phản ánh sức khỏe kinh doanh thật. Nên nhìn lợi nhuận mẹ và biên lợi nhuận, các so sánh cùng kỳ sẽ sạch lại sau khoảng 4 quý. Đây là suy luận từ số liệu, cần đối chiếu thông báo của công ty.";
+      add("Tăng trưởng","ok",t);
+      todo.push("Đọc thuyết minh báo cáo hợp nhất của "+pL(b.p)+" để biết công ty nào đổi cách ghi nhận.");
+    }else{
+      const good=(r==null||r>=10)&&(e!=null&&e>=10),bad=(r!=null&&r<0)&&(e!=null&&e<0);
+      add("Tăng trưởng",good?"good":bad?"bad":"ok","Doanh thu "+rs+" và lợi nhuận mẹ "+es+" so với 4 quý trước"+(good?", cả hai cùng tăng.":bad?", cả hai cùng giảm.":(r!=null&&e!=null&&r>0&&e<0?", doanh thu tăng nhưng lợi nhuận giảm, biên đang bị ép.":r!=null&&e!=null&&r<0&&e>0?", doanh thu giảm nhưng lợi nhuận tăng, nhờ biên hoặc khoản khác ngoài kinh doanh.":".")));
+    }
+  }
+  const E=s.eq;
+  if(E)add("Chất lượng lãi",E.tone,E.label+". "+E.why+(E.score!=null?" Điểm chất lượng "+E.score+"/100.":""));
+  /* 3. Sức khỏe tài chính */
+  if(!fin&&q){
+    const parts=[];if(s.debtEquity!=null)parts.push("nợ/vốn chủ "+nv(s.debtEquity,2));if(q.m.cr!=null)parts.push("thanh toán hiện hành "+nv(q.m.cr,2));
+    const red=q.a.c.filter(x=>x.lv==="cao").map(x=>x.t.toLowerCase());
+    const tone=q.cao>=2||(q.m.z!=null&&q.m.z<1.1)?"bad":(q.cao===1||(s.debtEquity!=null&&s.debtEquity>1.5))?"ok":"good";
+    add("Tài chính",tone,(parts.length?parts.join(", ")+". ":"")+(red.length?"Có "+red.length+" cờ đỏ: "+red.slice(0,3).join("; ")+".":"Không có cờ đỏ trong các phép kiểm tra tự động.")+(q.a.s.z!=null?" Altman Z'' "+nv(q.a.s.z,1)+" ("+q.a.s.zone+").":""));
+    if(q.m.cfoln!=null){
+      const c=q.m.cfoln;add("Dòng tiền",c>=.8?"good":c>=0?"ok":"bad","Dòng tiền kinh doanh bằng "+nv(c*100,0)+"% lợi nhuận 4 quý"+(c>=.8?", lợi nhuận được chuyển thành tiền tốt.":c>=0?", thấp hơn lợi nhuận, cần xem phải thu và hàng tồn kho.":", âm dù có lãi, lợi nhuận chưa thành tiền."));
+      if(c<0.5)todo.push("Xem vì sao dòng tiền kinh doanh thấp so với lợi nhuận (phải thu, hàng tồn kho, đầu tư vào dự án).");
+    }
+  }else if(bank&&s.ext){
+    const X=s.ext,p=[];if(X.cir!=null)p.push("chi phí/thu nhập "+nv(X.cir,0)+"%");if(X.loanGrowth!=null)p.push("tín dụng tăng "+nv(X.loanGrowth,0)+"%");if(X.ldr!=null)p.push("cho vay/tiền gửi KH "+nv(X.ldr,0)+"%");if(X.creditCost!=null)p.push("chi phí dự phòng "+nv(X.creditCost,2)+"% dư nợ");
+    add("Hiệu quả và rủi ro",X.cir!=null&&X.cir>55?"bad":X.ldr!=null&&X.ldr>100?"ok":"good",p.join(", ")+"."+(X.ldr!=null&&X.ldr>100?" Cho vay vượt tiền gửi khách hàng (tính trên số thuần), cần để ý nguồn vốn khác.":""));
+    todo.push("Nợ xấu và CAR không có trong dữ liệu CafeF, hãy xem báo cáo của ngân hàng.");
+  }else if(s.kind==="sec"&&s.ext){
+    const X=s.ext,p=[];if(X.lev!=null)p.push("đòn bẩy "+nv(X.lev,2)+" lần");if(X.marginRatio!=null)p.push("cho vay margin bằng "+nv(X.marginRatio,2)+" lần vốn chủ");if(X.propRatio!=null)p.push("tự doanh bằng "+nv(X.propRatio,2)+" lần vốn chủ");
+    add("Đòn bẩy",X.lev!=null&&X.lev>3.5?"bad":"ok",p.join(", ")+". Lợi nhuận công ty chứng khoán dao động theo thị trường, chỉ số cao ở nhịp tốt có thể không bền.");
+  }
+  /* 4. Định giá */
+  if(v&&v.fair!=null)add("Định giá",v.verdict==="cheap"||v.verdict==="soft-cheap"?"good":v.verdict==="fair"?"ok":"bad","Giá "+vnd(s.price)+" so với mức hợp lý khoảng "+vnd(v.fair)+" ("+v.verdictLabel.toLowerCase()+", biên an toàn "+signedPct(v.mos,0)+")."+(v.spread!=null&&v.spread>=1.7?" Các mô hình lệch nhau nhiều, dải giá hợp lý rộng.":""));
+  else add("Định giá","neutral","Chưa đủ mô hình để định giá "+s.t+".");
+  /* 5. Kỹ thuật */
+  if(s.trend){const t=readTech(s);add("Kỹ thuật",t.bias==="up"?"good":t.bias==="down"?"bad":"ok",t.title+", RSI "+nv(s.rsi,0)+".");}
+  /* Tóm lại */
+  const lo=bank?12:10,cheap=v&&(v.verdict==="cheap"||v.verdict==="soft-cheap"),rich=v&&v.verdict==="rich",none=!v||v.fair==null;
+  const risk=(q&&(q.cao>=2||q.g==="E"))||(s.roe!=null&&s.roe<0);
+  const solid=fin?(s.roe!=null&&s.roe>=lo):(q&&q.tot!=null&&q.tot>=65&&q.cao===0);
+  let tone="ok",head="Trung tính",why="Chưa có tín hiệu nổi bật ở cả chất lượng, giá lẫn xu hướng.";
+  if(risk){tone="bad";head="Cần thận trọng";why="Báo cáo có điểm yếu đáng kể"+(q&&q.cao>=2?" ("+q.cao+" cờ đỏ)":"")+", giá thấp chưa chắc là cơ hội mà có thể là bẫy giá trị.";}
+  else if(none){tone="neutral";head="Chưa đủ dữ liệu";why="Thiếu báo cáo hoặc giá nên chưa kết luận được. Xem các mục bên dưới.";}
+  else if(solid&&cheap&&s.trend!=="down"){tone="good";head="Đáng đưa vào danh sách theo dõi mua";why="Chất lượng báo cáo tốt, giá thấp hơn mức hợp lý và xu hướng chưa gãy.";}
+  else if(solid&&cheap){tone="ok";head="Nền tảng tốt, giá chưa xác nhận";why="Doanh nghiệp tốt và giá rẻ, nhưng xu hướng giá đang yếu. Chờ giá lấy lại MA20 sẽ an toàn hơn.";}
+  else if(solid&&rich){tone="ok";head="Doanh nghiệp tốt, giá đã cao";why="Chất lượng tốt nhưng giá vượt mức hợp lý. Hợp để theo dõi chờ nhịp điều chỉnh hơn là mua mới.";}
+  else if(solid){tone="good";head="Doanh nghiệp tốt, giá gần hợp lý";why="Chất lượng tốt và giá không lệch nhiều so với giá trị. Điểm vào phụ thuộc kỹ thuật và khẩu vị rủi ro.";}
+  else if(cheap){tone="ok";head="Rẻ nhưng chưa nổi bật về chất lượng";why="Giá thấp hơn mức hợp lý nhưng chất lượng báo cáo chỉ ở mức trung bình, cần xem kỹ nguyên nhân giá thấp.";}
+  else if(rich){tone="bad";head="Giá cao, chưa có biên an toàn";why="Giá vượt mức hợp lý trong khi chất lượng chưa vượt trội.";}
+  if(E&&E.tone==='bad'&&!risk&&!none){tone="bad";head="Chất lượng lãi đáng ngờ";why=E.why+" Giá thấp chưa chắc là cơ hội.";}
+  else if(E&&E.key==="stagn"&&!risk&&!none){tone="ok";head="Đang trì trệ"+(cheap?", giá rẻ có lý do":"");why=E.why+(cheap?" Giá thấp có thể phản ánh đúng việc này.":"");}
+  else if(E&&E.key==="decl"&&!risk&&!none){tone="ok";head="Lãi tăng nhưng chất lượng giảm";why=E.why;}
+  if(E)E.todo.forEach(t=>todo.push(t));
+  if(bd)why+=" Lưu ý: tăng trưởng đang bị méo do báo cáo đổi phạm vi hợp nhất.";
+  if(s.shares)todo.push("Số cổ phiếu là ước tính từ vốn góp, đối chiếu với số cổ phiếu lưu hành thực tế nếu cần P/E chính xác.");
+  return{tone,head,why,items:it,todo};
+}
+
+/* =================== Bóc tách chất lượng lợi nhuận =================== */
+function earnQuality(s){
+  const f=s.fin;if(!f||s.kind!=="normal")return null;
+  const p=f.last,p4=finIdx(f,p,4);if(!p)return null;
+  const dis=!!(s.brk&&s.brk.distorted),ab=x=>x==null?null:Math.abs(x);
+  const T=(k,pp)=>pp?ttm(f,k,pp):null;
+  const Q=pp=>{
+    if(!pp)return null;
+    const dt=T("dt",pp),lntt=T("lntt",pp);if(dt==null||lntt==null)return null;
+    const lnhd=T("lnhd",pp),dttc=T("dttc",pp),cptc=T("cptc",pp),lk=T("lkpl",pp)||0,cb=T("cpbh",pp),ql=T("cpql",pp),lai=T("cplai",pp);
+    const fin=(dttc||0)-(cptc||0),core=lnhd!=null?lnhd-fin-lk:null;
+    return{dt,lntt,lnst:T("lnst",pp),gop:T("gop",pp),gv:T("gv",pp),lnhd,fin,lk,core,khac:T("lnkhac",pp)||0,
+      opex:(cb!=null||ql!=null)?Math.abs(cb||0)+Math.abs(ql||0):null,lai:ab(lai),cfo:T("cfo",pp),capex:ab(T("capex",pp)),dep:ab(T("khauhao",pp))};
+  };
+  const c=Q(p),o=Q(p4);if(!c||c.dt<=0)return null;
+  const sec=[{id:"a",title:"Lãi từ đâu ra",rows:[]},{id:"b",title:"Lãi có thành tiền không",rows:[]},{id:"c",title:"Chất lượng doanh thu",rows:[]},{id:"d",title:"Đang chạy hay trì trệ",rows:[]}];
+  const S={a:sec[0].rows,b:sec[1].rows,c:sec[2].rows,d:sec[3].rows};
+  const add=(g,k,tone,text,where,yoy)=>{const lech=!!(yoy&&dis),pr=text.split("§");S[g].push({k,tone:lech?"neutral":tone,text:pr[0]+(lech||!pr[1]?"":" "+pr[1].trim())+(lech?" So sánh cùng kỳ đang lệch do báo cáo đổi phạm vi hợp nhất.":""),where:lech?"":where||"",lech});};
+  let ep=0,pp=0;const sc=(poss,earn)=>{if(earn==null)return;pp+=poss;ep+=earn;};
+  const P=x=>nv(x*100,0)+"%",P1=x=>nv(x*100,1)+"%";
+  const A=k=>fv(f,k,p),A4=p4?k=>fv(f,k,p4):()=>null;
+  const rev=c.dt,g=o&&o.dt>0?rev/o.dt-1:null;
+  /* ---- A. Lãi từ đâu ra ---- */
+  let coreShare=null,parts=null,gl=null,gc=null;
+  if(c.lntt<=0){add("a","Lỗ","bad","Lợi nhuận trước thuế 4 quý gần nhất là "+ty(c.lntt)+", doanh nghiệp đang lỗ.","Xem nguyên nhân lỗ ở thuyết minh và báo cáo của ban lãnh đạo.");sc(25,0);}
+  else if(c.core!=null){
+    coreShare=c.core/c.lntt;parts=[{k:"Kinh doanh cốt lõi",v:c.core,cls:"bg-up"},{k:"Tài chính ròng",v:c.fin,cls:"bg-brass"},{k:"Công ty liên kết",v:c.lk,cls:"bg-muted"},{k:"Khác",v:c.khac,cls:"bg-line"}].map(x=>({...x,sh:x.v/c.lntt}));
+    const tone=c.core<=0?"bad":coreShare>=.8?"good":coreShare>=.6?"ok":"bad";
+    add("a","Cơ cấu lãi",tone,"Trong "+ty(c.lntt)+" lợi nhuận trước thuế 4 quý gần nhất, kinh doanh cốt lõi chiếm "+P(coreShare)+" ("+ty(c.core)+"), tài chính ròng "+ty(c.fin)+", công ty liên kết "+ty(c.lk)+", khác "+ty(c.khac)+"."+(tone==="bad"?" Phần lớn lãi đến từ khoản phụ, thường không lặp lại đều.":""),tone==="good"?"":"Thuyết minh: thu nhập tài chính, lãi liên kết, thu nhập khác.");
+    sc(25,c.core<=0?0:coreShare>=.85?25:coreShare>=.7?18:coreShare>=.55?10:3);
+    if(o&&o.lntt>0&&o.core>0){
+      gl=c.lntt/o.lntt-1;gc=c.core/o.core-1;
+      if(gl>.1&&gc<gl-.15)add("a","Lãi cốt lõi","bad","Lợi nhuận trước thuế "+signedPct(gl*100,0)+" nhưng lãi cốt lõi chỉ "+signedPct(gc*100,0)+".§Phần tăng thêm đến từ khoản ngoài kinh doanh chính.","So sánh thu nhập tài chính, lãi liên kết, lợi nhuận khác với năm trước.",true);
+      else add("a","Lãi cốt lõi",gc>=.1?"good":gc>=-.03?"ok":"bad","Lãi cốt lõi "+signedPct(gc*100,0)+" so với 4 quý trước đó (lợi nhuận trước thuế "+signedPct(gl*100,0)+").","",true);
+    }
+  }
+  if(c.lntt>0&&c.lnst!=null){
+    const etr=1-c.lnst/c.lntt;
+    if(etr<.08)add("a","Thuế","ok","Thuế suất hiệu dụng chỉ "+P1(etr)+": có thể do ưu đãi hoặc hoàn nhập thuế hoãn lại, lãi sau thuế có thể không bền.","Thuyết minh chi phí thuế TNDN và ưu đãi thuế.");
+    else if(etr>.35)add("a","Thuế","ok","Thuế suất hiệu dụng "+P1(etr)+", cao bất thường, có thể có khoản chi phí không được trừ.","Thuyết minh chi phí thuế TNDN.");
+  }
+  /* ---- B. Thành tiền ---- */
+  const avgTS=(A("ts")!=null&&A4("ts")!=null)?(A("ts")+A4("ts"))/2:A("ts");
+  let cfoR=null,acc=null,fcf=null;
+  if(c.cfo==null||c.lnst==null)add("b","Dòng tiền","neutral","Thiếu số liệu dòng tiền đủ 4 quý liền (CafeF có quý để trống), chưa đánh giá được.","");
+  else if(c.lnst>0){
+    cfoR=c.cfo/c.lnst;
+    add("b","Dòng tiền",cfoR>=.9?"good":cfoR>=.5?"ok":"bad","Dòng tiền kinh doanh 4 quý "+ty(c.cfo)+", bằng "+P(cfoR)+" lãi sau thuế ("+ty(c.lnst)+")."+(cfoR<.5?" Lãi trên sổ chưa chuyển thành tiền.":""),cfoR>=.9?"":"Báo cáo lưu chuyển tiền tệ: phải thu, hàng tồn kho, chi phí trả trước.");
+    sc(18,cfoR>=.9?18:cfoR>=.6?13:cfoR>=.3?7:cfoR>=0?3:0);
+    if(avgTS>0){
+      acc=(c.lnst-c.cfo)/avgTS;
+      add("b","Chỉ số dồn tích",acc>.1?"bad":acc>.05?"ok":"good","Chỉ số dồn tích (lãi trừ tiền thật, chia tổng tài sản) là "+P1(acc)+". "+(acc>.05?"Cao nghĩa là lãi đang nằm trong phải thu, tồn kho và tài sản chưa thu tiền.":"Thấp, lãi có tiền đỡ lưng."),acc>.05?"So sánh phải thu, hàng tồn kho và chi phí chờ phân bổ với năm trước.":"");
+      sc(6,acc<=.03?6:acc<=.08?3:0);
+    }
+  }
+  if(c.cfo!=null&&c.capex!=null){
+    fcf=c.cfo-c.capex;const ex=c.dep>0&&c.capex/c.dep>1.3;
+    add("b","Dòng tiền tự do",fcf>=0?"good":ex?"ok":"bad","Sau khi trừ chi đầu tư tài sản cố định ("+ty(c.capex)+"), dòng tiền tự do 4 quý là "+ty(fcf)+"."+(fcf<0?(ex?" Âm vì đang mở rộng đầu tư, cần xem doanh thu có theo kịp không.":" Hoạt động kinh doanh không đủ nuôi đầu tư."):""),fcf<0?"Xem kế hoạch đầu tư và nguồn vốn (vay, phát hành) trong báo cáo.":"");
+    sc(6,fcf>=0?6:ex?3:0);
+  }
+  {let neg=0,tot=0;for(let n=0;n<4;n++){const q=finIdx(f,p,n);if(!q)continue;const a=fv(f,"cfo",q),b=fv(f,"lnst",q);if(a==null||b==null)continue;tot++;if(a<0&&b>0)neg++;}
+   if(neg>=2)add("b","Theo quý",neg>=3?"bad":"ok",neg+"/"+tot+" quý gần nhất dòng tiền kinh doanh âm dù có lãi.","Xem tính mùa vụ và các khoản thu chậm theo quý.");}
+  /* ---- C. Chất lượng doanh thu ---- */
+  let penC=0,haveC=false;
+  const pick=(a,b)=>finItem(f,a)?a:b;
+  if(o&&o.dt>0){
+    const kp=pick("pthkh","phaithu"),pt=A(kp),pt4=A4(kp);
+    if(pt!=null&&pt4!=null){
+      const d1=pt/(rev/365),d0=pt4/(o.dt/365),dd=d1-d0;haveC=true;
+      const tone=dd>=20?"bad":dd>=8?"ok":dd<=-8?"good":"neutral";
+      add("c","Phải thu",tone,"Số ngày thu tiền (phải thu khách hàng / doanh thu) "+nv(d1,0)+" ngày, "+(dd>=0?"tăng ":"giảm ")+nv(Math.abs(dd),0)+" ngày so với cùng kỳ năm trước."+(dd>=20?"§Khách đang trả chậm hơn rõ rệt.":""),dd>=8?"Thuyết minh phải thu khách hàng: tuổi nợ, nợ quá hạn, dự phòng.":"",true);
+      if(!dis)penC+=tone==="bad"?7:tone==="ok"?3:0;
+    }
+    if(c.gv>0&&o.gv>0){
+      const tn=A("ton"),tn4=A4("ton");
+      if(tn!=null&&tn4!=null&&tn>0.02*rev){
+        const d1=tn/(c.gv/365),d0=tn4/(o.gv/365),dd=d1-d0;haveC=true;
+        const tone=dd>=25?"bad":dd>=10?"ok":dd<=-10?"good":"neutral";
+        add("c","Tồn kho",tone,"Số ngày tồn kho "+nv(d1,0)+" ngày, "+(dd>=0?"tăng ":"giảm ")+nv(Math.abs(dd),0)+" ngày so với cùng kỳ năm trước."+(dd>=25?"§Hàng bán chậm hoặc đang tích hàng.":""),dd>=10?"Thuyết minh hàng tồn kho: loại hàng, dự phòng giảm giá.":"",true);
+        if(!dis)penC+=tone==="bad"?7:tone==="ok"?3:0;
+      }
+    }
+    const ud=x=>[x("tratnh"),x("tratdh"),x("dtchuanh"),x("dtchuadh")].reduce((a,b)=>a+(b||0),0),u=ud(A),u4=ud(A4);
+    if(u4>0.01*o.dt){
+      const gu=u/u4-1;haveC=true;
+      add("c","Tiền trả trước",gu<=-.2?"bad":gu>=.2?"good":"neutral","Tiền khách trả trước và doanh thu chờ phân bổ "+signedPct(gu*100,0)+" so với cùng kỳ ("+ty(u)+")."+(gu<=-.2?"§Đơn hàng mới có thể đang chậm lại.":""),gu<=-.2?"Xem giá trị đơn hàng đã ký và hợp đồng đang thực hiện.":"",true);
+      if(!dis)penC+=gu<=-.2?7:0;
+    }
+    const cp=A("cptrdh"),cp4=A4("cptrdh");
+    if(cp!=null&&cp4!=null&&c.lntt>0&&cp-cp4>.3*c.lntt&&cp>cp4*1.2)add("c","Chi phí chờ phân bổ","ok","Chi phí chờ phân bổ dài hạn tăng "+ty(cp-cp4)+" ("+P(( cp-cp4)/c.lntt)+" lợi nhuận trước thuế).§Chi phí có thể đang được hoãn ghi nhận để giữ lãi.","Thuyết minh chi phí trả trước dài hạn: loại chi phí và thời gian phân bổ.",true);
+    const xd=A("xdcb"),xd4=A4("xdcb");
+    if(xd!=null&&xd4>0&&xd>xd4*1.5&&avgTS>0&&xd-xd4>.03*avgTS)add("c","Xây dựng dở dang","ok","Xây dựng cơ bản dở dang tăng "+ty(xd-xd4)+" ("+signedPct((xd/xd4-1)*100,0)+"): vốn đã bỏ ra nhưng chưa ra doanh thu.","Thuyết minh các dự án dở dang, tiến độ và thời điểm đưa vào khai thác.",true);
+  }
+  if(haveC&&!dis)sc(20,Math.max(0,20-penC));
+  /* ---- D. Động lực ---- */
+  let gm=null,gm0=null,roic=null,mdelta=null;
+  if(g!=null){
+    const tone=g>=.1?"good":g>=.03?"ok":g>=-.03?"ok":"bad";
+    add("d","Doanh thu",tone,"Doanh thu 4 quý "+ty(rev)+", "+signedPct(g*100,0)+" so với 4 quý trước đó."+(g<.03&&g>=-.03?"§Gần như đi ngang.":g<-.03?"§Doanh thu đang co lại.":""),"",true);
+    if(!dis)sc(10,g>=.1?10:g>=.03?7:g>=-.03?3:0);
+    const a1=fv(f,"dt",p),a0=fv(f,"dt",p4);
+    if(a1!=null&&a0>0&&!dis){const ql=a1/a0-1;
+      if(ql<g-.08)add("d","Quý gần nhất","ok","Quý "+pL(p)+" doanh thu "+signedPct(ql*100,0)+" cùng kỳ, thấp hơn nhịp 4 quý ("+signedPct(g*100,0)+"): đà đang chậm lại.","Xem các quý tới và giải trình của ban lãnh đạo.");
+      else if(ql>g+.08)add("d","Quý gần nhất","good","Quý "+pL(p)+" doanh thu "+signedPct(ql*100,0)+" cùng kỳ, cao hơn nhịp 4 quý ("+signedPct(g*100,0)+"): đà đang tăng tốc.","");}
+  }
+  if(o&&o.dt>0&&c.gop!=null&&o.gop!=null){
+    gm=c.gop/rev;gm0=o.gop/o.dt;const dp=(gm-gm0)*100;
+    add("d","Biên gộp",dp<=-3?"bad":dp<=-1?"ok":dp>=1?"good":"neutral","Biên gộp 4 quý "+P1(gm)+", "+(dp>=0?"tăng ":"giảm ")+nv(Math.abs(dp),1)+" điểm % so với 4 quý trước đó."+(dp<=-3?"§Giá bán hoặc giá vốn đang xấu đi.":""),dp<=-1?"Xem cơ cấu sản phẩm, giá vốn và chính sách giá.":"",true);
+    if(!dis)sc(6,dp>=-1?6:dp>=-3?3:0);
+  }
+  if(o&&o.dt>0&&c.opex!=null&&o.opex!=null){
+    const dp=(c.opex/rev-o.opex/o.dt)*100;
+    if(dp<=-1.5&&g!=null&&g<.03)add("d","Chi phí hoạt động","ok","Chi phí bán hàng và quản lý giảm "+nv(-dp,1)+" điểm % doanh thu trong khi doanh thu không tăng.§Lãi có thể đang được giữ nhờ cắt chi phí, khó bền nếu doanh thu không hồi.","Xem chi phí marketing, nhân sự có đang bị cắt giảm không.",true);
+    else if(dp>=2)add("d","Chi phí hoạt động","bad","Chi phí bán hàng và quản lý tăng "+nv(dp,1)+" điểm % doanh thu, đang ăn vào lợi nhuận.","Xem khoản chi tăng nhanh nhất trong thuyết minh.",true);
+  }
+  if(c.capex!=null&&c.dep>0){
+    const r=c.capex/c.dep;
+    if(r<.6)add("d","Tái đầu tư",g!=null&&g<.03?"bad":"ok","Chi đầu tư chỉ bằng "+P(r)+" khấu hao: doanh nghiệp không tái đầu tư tương xứng, năng lực dài hạn có thể yếu dần.","Xem kế hoạch đầu tư và tuổi thọ tài sản.");
+    else if(r>1.5)add("d","Mở rộng",g!=null&&g>=.05?"good":"ok","Chi đầu tư gấp "+nv(r,1)+" lần khấu hao: đang mở rộng."+(g!=null&&g<.05?" Doanh thu chưa theo kịp, cần chờ dự án ra kết quả.":""),"");
+    sc(4,r>=.8?4:r>=.5?2:0);
+  }
+  if(o&&o.dt>0){
+    const ts=A("ts"),ts4=A4("ts");
+    if(ts>0&&ts4>0&&!dis){const gt=ts/ts4-1;if(gt>.15&&g!=null&&g<gt-.1)add("d","Tài sản","ok","Tổng tài sản "+signedPct(gt*100,0)+" nhưng doanh thu chỉ "+signedPct(g*100,0)+": vốn đang nằm trong tài sản chưa sinh doanh thu.","Xem tài sản nào tăng mạnh nhất (tiền gửi, đầu tư, bất động sản).");}
+  }
+  const ic=(A("vcsh")||0)+(A("vay")||0)-(A("tienall")||0);
+  if(c.core!=null&&ic>0&&c.core>0){
+    roic=c.core*.8/ic;
+    add("d","ROIC",roic>=.15?"good":roic>=.1?"ok":"bad","ROIC ước tính "+P1(roic)+" (lãi cốt lõi sau thuế 20% chia vốn đầu tư ròng), so với chi phí vốn ước tính quanh 10%."+(roic<.1?" Doanh nghiệp đang tạo ra ít giá trị hơn chi phí vốn.":""),roic<.1?"So sánh với lãi suất vay và kỳ vọng của cổ đông.":"");
+    sc(5,roic>=.1?5:roic>=.06?2:0);
+  }
+  if(c.lai>0&&c.core!=null){
+    const ic2=c.core/c.lai;
+    if(ic2<3)add("d","Trả lãi vay",ic2<1.5?"bad":"ok","Lãi cốt lõi gấp "+nv(ic2,1)+" lần chi phí lãi vay"+(ic2<1.5?": biên an toàn mỏng, lãi suất tăng sẽ ăn mạnh vào lãi.":"."),"Xem lịch đáo hạn nợ và lãi suất bình quân.");
+  }
+  /* ---- Điểm và nhãn ---- */
+  const score=pp>=40?Math.round(ep/pp*100):null;
+  const bads=["b","c"].reduce((a,k)=>a+S[k].filter(r=>r.tone==="bad").length,0);
+  const margDown=gm!=null&&gm0!=null&&(gm-gm0)*100<=-1;
+  let key="mid",label="Chất lượng trung bình",tone="ok",why="Không có điểm xấu nổi bật nhưng cũng chưa có bằng chứng lãi thật mạnh.";
+  if(c.lntt<=0||(c.core!=null&&c.core<=0)){key="loss";label="Đang lỗ hoặc lãi cốt lõi âm";tone="bad";why="Kinh doanh chính chưa tạo ra lãi, mọi khoản lãi nếu có đều đến từ nguồn phụ.";}
+  else if(coreShare!=null&&coreShare<.6){key="noncore";label="Lãi nhờ khoản phụ";tone="bad";why="Chỉ "+P(coreShare)+" lãi trước thuế đến từ kinh doanh chính, phần còn lại là tài chính, liên kết hoặc thu nhập khác.";}
+  else if(c.lnst>0&&((cfoR!=null&&cfoR<.3)||(acc!=null&&acc>.1))){key="cash";label="Lãi đẹp trên sổ, tiền chưa về";tone="bad";why="Lãi sau thuế chưa chuyển thành tiền"+(cfoR!=null?" (dòng tiền kinh doanh chỉ bằng "+P(Math.max(cfoR,0))+" lãi)":"")+", cần xem phải thu và tồn kho.";}
+  else if(!dis&&g!=null&&g<.03&&((gc!=null&&gc<=.03)||margDown||(c.capex!=null&&c.dep>0&&c.capex/c.dep<.6))){
+    key="stagn";label="Đang trì trệ";tone="ok";
+    const rs=["doanh thu "+(g<-.03?"giảm ":"gần như đi ngang ")+signedPct(g*100,0)];if(gc!=null&&gc<=.03)rs.push("lãi cốt lõi "+signedPct(gc*100,0));if(margDown)rs.push("biên gộp co lại");if(c.capex!=null&&c.dep>0&&c.capex/c.dep<.6)rs.push("không tái đầu tư tương xứng");
+    why="Lãi còn trên sổ nhưng "+rs.join(", ")+".";
+  }
+  else if(!dis&&gl!=null&&gl>.1&&bads>=2){key="decl";label="Lãi tăng nhưng chất lượng giảm";tone="ok";why="Lợi nhuận tăng nhưng có "+bads+" dấu hiệu xấu về dòng tiền hoặc doanh thu.";}
+  else if(score!=null&&score<45){key="weak";label="Chất lượng lợi nhuận yếu";tone="bad";why="Điểm chất lượng thấp ở nhiều mặt cùng lúc.";}
+  else if(score!=null&&score>=70&&(dis||g==null||g>=.05)){key="good";label="Lãi thật, đang chạy";tone="good";why="Lãi chủ yếu từ kinh doanh chính, có tiền đỡ lưng"+(g!=null&&!dis?" và doanh thu "+signedPct(g*100,0):"")+".";}
+  if(dis)why+=" Các so sánh cùng kỳ đang lệch do báo cáo đổi phạm vi hợp nhất, nên phần tăng trưởng chưa kết luận.";
+  /* Bảng 8 quý */
+  const ser=[];for(let n=7;n>=0;n--){
+    const q=finIdx(f,p,n);if(!q)continue;
+    const dt=fv(f,"dt",q),gop=fv(f,"gop",q),lh=fv(f,"lnhd",q),a=fv(f,"dttc",q),b=fv(f,"cptc",q),lk=fv(f,"lkpl",q)||0;
+    ser.push({p:q,dt,core:lh!=null?lh-((a||0)-(b||0))-lk:null,lnme:fv(f,"lnme",q)!=null?fv(f,"lnme",q):fv(f,"lnst",q),cfo:fv(f,"cfo",q),gm:dt>0&&gop!=null?gop/dt:null});
+  }
+  return{key,label,tone,why,score,parts,coreShare,sections:sec.filter(x=>x.rows.length),ser,dis,
+    todo:sec.flatMap(x=>x.rows.filter(r=>r.where&&r.tone==="bad").map(r=>r.where)).slice(0,3)};
+}
+
 /* =================== Trạng thái giao diện =================== */
 let D={step:1,sel:null,F:defaultFilters(),sortKey:"mcap",sortDir:-1,discount:.12,growth:null,range:"6M",candle:"D",watch:[],more:false};
 function loadDesk(){try{const o=JSON.parse(lsGet("sang.desk","{}"));if(o&&typeof o==="object"){
@@ -769,7 +1030,7 @@ function loadDesk(){try{const o=JSON.parse(lsGet("sang.desk","{}"));if(o&&typeof
   if(typeof o.sortKey==="string")D.sortKey=o.sortKey;if(o.sortDir===1||o.sortDir===-1)D.sortDir=o.sortDir;
   if(typeof o.discount==="number"&&o.discount>=.08&&o.discount<=.16)D.discount=o.discount;
   if(o.growth==null||typeof o.growth==="number")D.growth=o.growth;
-  if(["3M","6M","1Y"].includes(o.range))D.range=o.range;
+  if(["1M","3M","6M","1Y","2Y","3Y","5Y","ALL"].includes(o.range))D.range=o.range;
   if(["D","W","M"].includes(o.candle))D.candle=o.candle;
   if(Array.isArray(o.watch))D.watch=o.watch.filter(t=>/^[A-Z0-9]{2,10}$/.test(t)).slice(0,100);}}catch(e){}}
 function saveDesk(){lsSet("sang.desk",JSON.stringify({step:D.step,sel:D.sel,F:D.F,sortKey:D.sortKey,sortDir:D.sortDir,discount:D.discount,growth:D.growth,range:D.range,candle:D.candle,watch:D.watch}));}
@@ -860,6 +1121,28 @@ function picker(s){
   const L=[...STOCKS].sort((a,b)=>a.t.localeCompare(b.t));
   return'<div class="mb-4 flex flex-wrap items-center gap-2"><label for="selT" class="text-sm text-muted">Mã</label><select id="selT" class="min-w-0 max-w-full rounded-md border border-line bg-card px-3 py-2 text-sm font-medium">'+L.map(x=>'<option value="'+x.t+'"'+(s&&x.t===s.t?' selected':'')+'>'+x.t+' — '+esc(x.name)+'</option>').join("")+'</select>'+(s?starBtn(s.t):'')+'<button type="button" data-step="1" class="ml-auto text-sm text-muted underline">← Về tầm soát</button></div>';
 }
+function breakBanner(s){
+  const b=s.brk;if(!b||!b.distorted)return"";
+  return'<div class="mt-3 rounded-lg border border-brass bg-brass-soft p-3 text-sm text-brass"><b>Báo cáo đổi phạm vi hợp nhất từ '+esc(pL(b.p))+'.</b> '+esc(b.ev.join("; "))+'. Các số so sánh cùng kỳ (tăng doanh thu, tăng trưởng) có thể bị méo cho đến khoảng 4 quý sau.</div>';
+}
+const TONEC={good:"bg-up-soft text-up",ok:"bg-brass-soft text-brass",bad:"bg-down-soft text-down",neutral:"bg-line text-muted"};
+function eqCard(s){
+  const e=s.eq;if(!e)return"";
+  const bar=e.parts?'<div class="mt-3 flex h-3 w-full overflow-hidden rounded-full bg-line">'+e.parts.filter(x=>x.sh>0).map(x=>'<div class="'+x.cls+'" style="width:'+Math.min(100,x.sh*100).toFixed(1)+'%" title="'+esc(x.k)+'"></div>').join("")+'</div><div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">'+e.parts.map(x=>'<span class="inline-flex items-center gap-1"><i class="inline-block h-2 w-2 rounded-full '+x.cls+'"></i>'+esc(x.k)+' '+nv(x.sh*100,0)+'%</span>').join("")+'</div>':"";
+  const sc=e.score==null?"":'<div class="text-right"><div class="text-2xl font-semibold leading-none">'+e.score+'<span class="text-sm font-normal text-muted">/100</span></div><div class="mt-1 text-[11px] text-muted">điểm chất lượng</div></div>';
+  const secs=e.sections.map(g=>'<div class="mt-4"><div class="text-xs font-semibold uppercase tracking-wide text-muted">'+esc(g.title)+'</div><div class="mt-1 divide-y divide-line">'+g.rows.map(x=>'<div class="flex gap-3 py-2.5"><span class="mt-0.5 h-fit w-24 shrink-0 rounded px-1.5 py-0.5 text-center text-[11px] font-semibold '+TONEC[x.tone]+'">'+esc(x.k)+(x.lech?' · Lệch':'')+'</span><div class="min-w-0 text-sm"><p>'+esc(x.text)+'</p>'+(x.where?'<p class="mt-0.5 text-xs text-muted">Kiểm tra: '+esc(x.where)+'</p>':'')+'</div></div>').join("")+'</div></div>').join("");
+  const T=(l,fn)=>'<tr><td class="whitespace-nowrap py-1.5 pr-3 text-muted">'+l+'</td>'+e.ser.map(x=>'<td class="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">'+fn(x)+'</td>').join("")+'</tr>';
+  const ty0=v=>v==null?"—":nv(v/1e9,0);
+  const tbl=e.ser.length?'<div class="mt-4"><div class="text-xs font-semibold uppercase tracking-wide text-muted">Diễn biến theo quý (tỷ đồng)</div><div class="mt-1 overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-muted"><th class="py-1 pr-3 text-left font-medium"></th>'+e.ser.map(x=>'<th class="px-2 py-1 text-right font-medium">'+esc(pL(x.p))+'</th>').join("")+'</tr></thead><tbody class="divide-y divide-line">'+T("Doanh thu",x=>ty0(x.dt))+T("Lãi cốt lõi",x=>ty0(x.core))+T("Lãi cổ đông mẹ",x=>ty0(x.lnme))+T("Dòng tiền KD",x=>ty0(x.cfo))+T("Biên gộp",x=>x.gm==null?"—":nv(x.gm*100,1)+"%")+'</tbody></table></div></div>':"";
+  return'<div class="'+card+' p-4"><div class="text-xs font-medium uppercase tracking-wide text-muted">Bóc tách chất lượng lợi nhuận</div><div class="mt-1 flex items-start justify-between gap-3"><div class="min-w-0"><h2 class="text-lg font-semibold">'+esc(e.label)+'</h2><p class="mt-1 text-sm">'+esc(e.why)+'</p></div>'+sc+'</div>'+bar+secs+tbl+'<p class="mt-3 text-[11px] text-muted">Suy luận từ ba bảng báo cáo của CafeF, không có thuyết minh. Mỗi dòng có mục "Kiểm tra" chỉ chỗ cần đối chiếu.</p></div>';
+}
+function conclusionCard(s,v){
+  const c=conclude(s,v),TC={good:"bg-up-soft text-up",ok:"bg-brass-soft text-brass",bad:"bg-down-soft text-down",neutral:"bg-line text-muted"};
+  return'<div class="'+card+' p-4"><div class="text-xs font-medium uppercase tracking-wide text-muted">Kết luận phân tích</div><div class="mt-1 flex flex-wrap items-center gap-2"><h2 class="text-lg font-semibold">'+esc(c.head)+'</h2><span class="rounded px-2 py-0.5 text-xs font-semibold '+TC[c.tone]+'">'+(c.tone==="good"?"Thuận":c.tone==="bad"?"Thận trọng":c.tone==="ok"?"Cân nhắc":"—")+'</span></div><p class="mt-1 text-sm">'+esc(c.why)+'</p>'+
+   '<div class="mt-3 divide-y divide-line">'+c.items.map(x=>'<div class="flex gap-3 py-2.5"><span class="mt-0.5 h-fit w-24 shrink-0 rounded px-1.5 py-0.5 text-center text-[11px] font-semibold '+TC[x.tone]+'">'+esc(x.k)+'</span><p class="min-w-0 text-sm">'+esc(x.text)+'</p></div>').join("")+'</div>'+
+   (c.todo.length?'<div class="mt-3 rounded-md bg-paper p-3"><div class="text-xs font-semibold text-muted">Cần kiểm tra thêm</div><ul class="mt-1 list-disc space-y-1 pl-5 text-sm">'+c.todo.map(t=>'<li>'+esc(t)+'</li>').join("")+'</ul></div>':'')+
+   '<p class="mt-2 text-[11px] text-muted">Kết luận do quy tắc tự động rút ra từ số liệu, không phải khuyến nghị đầu tư.</p></div>';
+}
 function stockHead(s){
   const q=s.live&&LIVE[s.t],qAt=q&&q.at?new Date(q.at).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"";
   return'<div class="'+card+' p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><h1 class="text-xl font-semibold">'+s.t+' <span class="text-base font-normal text-muted">'+esc(s.name)+'</span></h1><p class="text-xs text-muted">'+esc(s.full)+' · '+esc(s.exchange)+' · '+esc(s.sector)+'</p></div>'+
@@ -920,11 +1203,11 @@ function viewValue(){
   if(!STOCKS.length){v0.innerHTML=emptyData();return;}
   if(!s){v0.innerHTML=picker(null)+noStock();return;}
   const v=val(s),m=referenceMultiples(s.sector),x=crossRead(v.verdict,s.trend,s.rsi);
-  v0.innerHTML=picker(s)+stockHead(s)+
+  v0.innerHTML=picker(s)+stockHead(s)+breakBanner(s)+
   '<div class="mt-4 grid gap-4 lg:grid-cols-5"><div class="space-y-4 lg:col-span-3">'+
   '<div class="'+card+' p-4"><div class="flex flex-wrap items-center gap-3"><span class="rounded-md px-3 py-1.5 text-sm font-semibold '+VERD_CL[v.verdict]+'">'+v.verdictLabel+'</span>'+
    (v.fair!=null?'<div class="font-mono text-sm">Giá hợp lý <b>'+vnd(v.fair)+'</b> · biên an toàn '+signedPct(v.mos,0)+' · '+(v.upside>=0?"dư địa ":"cao hơn ")+signedPct(v.upside,0)+'</div>':'')+'</div>'+meter(s,v)+'<p class="mt-2 text-sm">'+esc(v.narrative)+'</p></div>'+
-  '<div class="'+card+' p-4"><h2 class="font-semibold">Các mô hình</h2><div class="mt-2 divide-y divide-line">'+v.models.map(md=>'<div class="py-2.5"><div class="flex items-baseline justify-between gap-2"><span class="text-sm font-medium">'+md.name+' <span class="text-xs font-normal text-muted">trọng số '+nv(md.weight*100,0)+'%</span></span><span class="font-mono text-sm '+(md.counted?"":"text-muted")+'">'+(md.fair==null?"—":vnd(md.fair))+'</span></div><p class="text-xs text-muted">'+(md.counted?'<span class="text-up">Được tính.</span> ':'<span>Không tính.</span> ')+esc(md.note)+'</p></div>').join("")+'</div>'+
+  eqCard(s)+conclusionCard(s,v)+'<div class="'+card+' p-4"><h2 class="font-semibold">Các mô hình</h2><div class="mt-2 divide-y divide-line">'+v.models.map(md=>'<div class="py-2.5"><div class="flex items-baseline justify-between gap-2"><span class="text-sm font-medium">'+md.name+' <span class="text-xs font-normal text-muted">trọng số '+nv(md.weight*100,0)+'%</span></span><span class="font-mono text-sm '+(md.counted?"":"text-muted")+'">'+(md.fair==null?"—":vnd(md.fair))+'</span></div><p class="text-xs text-muted">'+(md.counted?'<span class="text-up">Được tính.</span> ':'<span>Không tính.</span> ')+esc(md.note)+'</p></div>').join("")+'</div>'+
    '<div class="mt-3 rounded-md bg-paper p-3"><div class="flex items-center justify-between text-sm"><label for="disc">Suất chiết khấu (cho Gordon)</label><span class="font-mono" id="discV">'+nv(D.discount*100,0)+'%</span></div><input id="disc" type="range" min="8" max="16" step="1" value="'+Math.round(D.discount*100)+'"/>'+
    '<label class="mt-1 block text-xs text-muted">Tăng trưởng dài hạn g (%), để trống nếu muốn tự động<input id="gro" type="number" inputmode="decimal" step="0.5" value="'+(D.growth==null?"":D.growth)+'" class="mt-1 w-full rounded-md border border-line bg-card px-3 py-2 text-sm text-ink"/></label></div>'+
    '<p class="mt-2 text-xs text-muted">Bội số tham chiếu: P/E '+nv(m.pe,1)+'× ('+m.peScope+'), P/B '+nv(m.pb,1)+'× ('+m.pbScope+'). Ngành chỉ được dùng khi có ít nhất 5 mã cùng ngành, nếu không thì dùng trung vị thị trường của những mã đang có số liệu.</p></div>'+
@@ -943,18 +1226,39 @@ function ratioCard(s){
 }
 
 /* =================== Bước 3: Kỹ thuật =================== */
+/* ---- Biểu đồ kiểu TradingView: đổi khung nến, kéo để lùi quá khứ, chụm để thu phóng, rê/chạm để đọc số ---- */
+const CHART_SPANS={D:[["1M","1T"],["3M","3T"],["6M","6T"],["1Y","1N"],["ALL","Tất cả"]],W:[["6M","6T"],["1Y","1N"],["2Y","2N"],["5Y","5N"],["ALL","Tất cả"]],M:[["1Y","1N"],["3Y","3N"],["5Y","5N"],["ALL","Tất cả"]]};
+const CHART_DEF={D:"6M",W:"2Y",M:"ALL"};
+let CH={nb:null,off:0,hover:null,hy:null,s:null,g:null,key:""};
+const chartRange=()=>CHART_SPANS[D.candle].some(x=>x[0]===D.range)?D.range:CHART_DEF[D.candle];
+function chartReset(){CH.nb=null;CH.off=0;CH.hover=null;CH.hy=null;}
+function chartWin(all){
+  const len=all.length;let nb=CH.nb;
+  if(!nb){const m={"1M":1,"3M":3,"6M":6,"1Y":12,"2Y":24,"3Y":36,"5Y":60}[chartRange()];
+    if(!m)nb=len;else{const d=new Date(all[len-1].date+"T00:00:00Z");d.setUTCMonth(d.getUTCMonth()-m);const cut=d.toISOString().slice(0,10);nb=all.filter(b=>b.date>=cut).length;}}
+  nb=Math.min(len,Math.max(15,nb));CH.off=Math.max(0,Math.min(len-nb,CH.off));
+  const end=len-CH.off;return{start:end-nb,end,nb};
+}
+const cdate=(d,long)=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||"");return m?(long?m[3]+"/"+m[2]+"/"+m[1]:m[3]+"/"+m[2]):"—";};
+const fVol=v=>v==null?"—":v>=1e6?nv(v/1e6,2)+" tr":v>=1e3?nv(v/1e3,0)+" nghìn":nv(v,0);
+const tagPx=v=>Math.abs(v)>=1000?nv(v/1000,2)+"k":nv(v,0);
 function chartSvg(s,w){
-  const all=barsFor(s),n=D.candle==="D"?{"3M":63,"6M":126,"1Y":250}[D.range]:D.candle==="W"?{"3M":13,"6M":26,"1Y":52}[D.range]:{"3M":3,"6M":6,"1Y":12}[D.range],B=all.slice(-n),N=B.length,mg={l:6,r:44},iw=w-mg.l-mg.r,step=iw/Math.max(N,1),bw=Math.max(1,Math.min(9,step*.65));
+  const all=s.bars,W=chartWin(all),B=all.slice(W.start,W.end),N=B.length,mg={l:6,r:46},iw=w-mg.l-mg.r,step=iw/Math.max(N,1),bw=Math.max(1,Math.min(14,step*.7));
   const X=i=>mg.l+step*(i+.5);
   const panel=(top,h,lo,hi,fmt,ticks)=>{const Y=v=>top+h-(v-lo)/((hi-lo)||1)*h;let g='';ticks.forEach(t=>{g+='<line x1="'+mg.l+'" x2="'+(w-mg.r)+'" y1="'+Y(t).toFixed(1)+'" y2="'+Y(t).toFixed(1)+'" stroke="#e3dcd0" stroke-width="1"/><text x="'+(w-mg.r+4)+'" y="'+(Y(t)+4).toFixed(1)+'" font-size="10" fill="#5c564c">'+fmt(t)+'</text>';});return{Y,g};};
   const hi=Math.max(...B.map(b=>b.high)),lo=Math.min(...B.map(b=>b.low)),pad=(hi-lo)*.06||hi*.02,P1=panel(8,230,lo-pad,hi+pad,axisPrice,[0,1,2,3,4].map(i=>lo+(hi-lo)*i/4));
+  CH.g={w,mg,step,N,start:W.start,lo:lo-pad,hi:hi+pad,top:8,h:230};
   let o='<svg viewBox="0 0 '+w+' 520" width="100%" role="img" aria-label="Biểu đồ nến, khối lượng, RSI và MACD của '+s.t+'" style="display:block">';
   o+=P1.g;
-  [[s.resistance,"#8e2e28"],[s.support,"#0f6a38"]].forEach(([v,c])=>{if(v>=lo-pad&&v<=hi+pad)o+='<line x1="'+mg.l+'" x2="'+(w-mg.r)+'" y1="'+P1.Y(v).toFixed(1)+'" y2="'+P1.Y(v).toFixed(1)+'" stroke="'+c+'" stroke-dasharray="4 4" stroke-width="1"/>';});
+  [[s.resistance,"#8e2e28"],[s.support,"#0f6a38"]].forEach(([v,c])=>{if(v>=lo-pad&&v<=hi+pad)o+='<line x1="'+mg.l+'" x2="'+(w-mg.r)+'" y1="'+P1.Y(v).toFixed(1)+'" y2="'+P1.Y(v).toFixed(1)+'" stroke="'+c+'" stroke-dasharray="4 4" stroke-width="1" opacity=".7"/>';});
   B.forEach((b,i)=>{const up=b.close>=b.open,c=up?"#0f6a38":"#8e2e28",x=X(i);o+='<line x1="'+x.toFixed(1)+'" x2="'+x.toFixed(1)+'" y1="'+P1.Y(b.high).toFixed(1)+'" y2="'+P1.Y(b.low).toFixed(1)+'" stroke="'+c+'"/><rect x="'+(x-bw/2).toFixed(1)+'" y="'+Math.min(P1.Y(b.open),P1.Y(b.close)).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(1,Math.abs(P1.Y(b.open)-P1.Y(b.close))).toFixed(1)+'" fill="'+c+'"/>';});
   const line=(k,col)=>{let d="";B.forEach((b,i)=>{if(b[k]!=null)d+=(d?"L":"M")+X(i).toFixed(1)+" "+P1.Y(b[k]).toFixed(1);});return d?'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.6"/>':'';};
   o+=line("ma20","#7a4e22")+line("ma50","#1c1916");
-  o+='<text x="'+mg.l+'" y="248" font-size="10" fill="#5c564c">'+dm(B[0].date)+'</text><text x="'+(w-mg.r)+'" y="248" font-size="10" text-anchor="end" fill="#5c564c">'+dm(B[N-1].date)+'</text>';
+  const lb=all[all.length-1];
+  if(W.end===all.length){const y=P1.Y(lb.close),c=lb.close>=lb.open?"#0f6a38":"#8e2e28";
+    o+='<line x1="'+mg.l+'" x2="'+(w-mg.r)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="'+c+'" stroke-dasharray="2 3" stroke-width="1" opacity=".8"/><rect x="'+(w-mg.r+1)+'" y="'+(y-8).toFixed(1)+'" width="'+(mg.r-1)+'" height="16" rx="3" fill="'+c+'"/><text x="'+(w-mg.r+4)+'" y="'+(y+3.5).toFixed(1)+'" font-size="10" fill="#fff">'+tagPx(lb.close)+'</text>';}
+  const days=(new Date(B[N-1].date)-new Date(B[0].date))/864e5,lbl=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d);return D.candle==="M"||days>370?m[2]+"/"+m[1].slice(2):m[3]+"/"+m[2];};
+  const nt=Math.min(5,N);for(let k=0;k<nt;k++){const i=nt===1?0:Math.round((N-1)*k/(nt-1)),x=Math.max(mg.l+16,Math.min(w-mg.r-16,X(i)));o+='<text x="'+x.toFixed(1)+'" y="249" font-size="10" text-anchor="middle" fill="#5c564c">'+lbl(B[i].date)+'</text>';}
   const vm=Math.max(...B.map(b=>b.volume))||1;o+='<g transform="translate(0,262)">';
   B.forEach((b,i)=>{const h=b.volume/vm*50;o+='<rect x="'+(X(i)-bw/2).toFixed(1)+'" y="'+(54-h).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(b.close>=b.open?"#0f6a38":"#8e2e28")+'" opacity=".45"/>';});
   o+='<text x="'+(w-mg.r+4)+'" y="12" font-size="10" fill="#5c564c">KL</text></g>';
@@ -962,7 +1266,60 @@ function chartSvg(s,w){
   const mv=B.flatMap(b=>[b.macd,b.signal,b.hist]).filter(x=>x!=null),ml=Math.min(...mv,0),mh=Math.max(...mv,0),P3=panel(420,80,ml,mh,x=>nv(x,x>=100?0:2),[ml,0,mh].filter((x,i,a)=>a.indexOf(x)===i));o+=P3.g;
   B.forEach((b,i)=>{if(b.hist!=null){const y0=P3.Y(0),y1=P3.Y(b.hist);o+='<rect x="'+(X(i)-bw/2).toFixed(1)+'" y="'+Math.min(y0,y1).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(.5,Math.abs(y0-y1)).toFixed(1)+'" fill="'+(b.hist>=0?"#0f6a38":"#8e2e28")+'" opacity=".45"/>';}});
   [["macd","#1c1916"],["signal","#7a4e22"]].forEach(([k,c])=>{let d="";B.forEach((b,i)=>{if(b[k]!=null)d+=(d?"L":"M")+X(i).toFixed(1)+" "+P3.Y(b[k]).toFixed(1);});if(d)o+='<path d="'+d+'" fill="none" stroke="'+c+'" stroke-width="1.4"/>';});
-  o+='<text x="'+mg.l+'" y="432" font-size="10" fill="#5c564c">MACD 12/26/9</text></svg>';return o;
+  o+='<text x="'+mg.l+'" y="432" font-size="10" fill="#5c564c">MACD 12/26/9</text><g id="xh" style="pointer-events:none">'+xhHtml()+'</g></svg>';return o;
+}
+function xhHtml(){
+  const g=CH.g;if(!g||CH.hover==null||!CH.s)return"";const i=CH.hover-g.start;if(i<0||i>=g.N)return"";
+  const x=g.mg.l+g.step*(i+.5),b=CH.s.bars[CH.hover];if(!b)return"";
+  let o='<line x1="'+x.toFixed(1)+'" x2="'+x.toFixed(1)+'" y1="8" y2="500" stroke="#5c564c" stroke-dasharray="3 3" stroke-width="1"/>';
+  if(CH.hy!=null&&CH.hy>=g.top&&CH.hy<=g.top+g.h){const p=g.hi-(CH.hy-g.top)/g.h*(g.hi-g.lo);
+    o+='<line x1="'+g.mg.l+'" x2="'+(g.w-g.mg.r)+'" y1="'+CH.hy.toFixed(1)+'" y2="'+CH.hy.toFixed(1)+'" stroke="#5c564c" stroke-dasharray="3 3" stroke-width="1"/><rect x="'+(g.w-g.mg.r+1)+'" y="'+(CH.hy-8).toFixed(1)+'" width="'+(g.mg.r-1)+'" height="16" rx="3" fill="#1c1916"/><text x="'+(g.w-g.mg.r+4)+'" y="'+(CH.hy+3.5).toFixed(1)+'" font-size="10" fill="#fff">'+tagPx(p)+'</text>';}
+  const tx=Math.max(34,Math.min(g.w-g.mg.r-34,x));
+  o+='<rect x="'+(tx-34).toFixed(1)+'" y="238" width="68" height="16" rx="3" fill="#1c1916"/><text x="'+tx.toFixed(1)+'" y="249.5" font-size="10" text-anchor="middle" fill="#fff">'+cdate(b.date,true)+'</text>';
+  return o;
+}
+function infoHtml(){
+  if(!CH.s)return"";const bars=CH.s.bars,i=CH.hover!=null?CH.hover:bars.length-1,b=bars[i],pb=bars[i-1];if(!b)return"";
+  const ch=pb&&pb.close?(b.close/pb.close-1)*100:null,cl=b.close>=b.open?"text-up":"text-down";
+  return'<span class="text-muted">'+cdate(b.date,true)+(D.candle==="W"?" · tuần":D.candle==="M"?" · tháng":"")+'</span> <span class="'+cl+'">Mở '+vnd(b.open)+' · Cao '+vnd(b.high)+' · Thấp '+vnd(b.low)+' · Đóng '+vnd(b.close)+(ch!=null?' ('+signedPct(ch,2)+')':'')+'</span><br><span class="text-muted">KL '+fVol(b.volume)+(b.ma20!=null?' · MA20 '+vnd(b.ma20):'')+(b.ma50!=null?' · MA50 '+vnd(b.ma50):'')+(b.rsi!=null?' · RSI '+nv(b.rsi,0):'')+'</span>';
+}
+function paintInfo(){const e=$("chartInfo");if(e)e.innerHTML=infoHtml();}
+function paintXh(){const e=$("xh");if(e)e.innerHTML=xhHtml();paintInfo();}
+function syncRangeBtns(){document.querySelectorAll("[data-range]").forEach(b=>{const on=!CH.nb&&CH.off===0&&chartRange()===b.dataset.range;b.setAttribute("aria-pressed",on);b.classList.toggle("bg-ink",on);b.classList.toggle("text-paper",on);b.classList.toggle("border-ink",on);b.classList.toggle("bg-paper",!on);b.classList.toggle("border-line",!on);});}
+function redraw(){const e=$("chartSvg");if(!e||!CH.s)return;e.innerHTML=chartSvg(CH.s,CH.g?CH.g.w:340);paintInfo();syncRangeBtns();}
+function chartZoomTo(nb,ratio){
+  const all=CH.s.bars,len=all.length,W=chartWin(all),anchor=W.start+ratio*W.nb;nb=Math.max(15,Math.min(len,nb));
+  if(nb===W.nb&&CH.nb)return;CH.nb=nb;CH.off=Math.round(len-(anchor-ratio*nb+nb));redraw();
+}
+function drawChart(ts){
+  const box=$("chartBox");if(!box)return;CH.s=ts;
+  const w=Math.max(280,Math.floor(box.clientWidth)||340);
+  box.innerHTML='<div id="chartInfo" class="mb-1 min-h-[2.4rem] font-mono text-[11px] leading-snug"></div><div id="chartSvg" style="touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:crosshair">'+chartSvg(ts,w)+'</div><p class="mt-1 text-[11px] text-muted">Kéo ngang để xem quá khứ, chụm hai ngón hoặc nút +/− để thu phóng, chạm hoặc rê chuột để đọc số từng nến.</p>';
+  paintInfo();syncRangeBtns();wireChart();
+}
+function wireChart(){
+  const el=$("chartSvg");if(!el)return;
+  const P=new Map();let drag=null,pin=null,moved=false;
+  const px=e=>{const r=el.getBoundingClientRect(),sc=CH.g.w/(r.width||CH.g.w);return{x:(e.clientX-r.left)*sc,y:(e.clientY-r.top)*sc,sc};};
+  const idxAt=x=>CH.g.start+Math.max(0,Math.min(CH.g.N-1,Math.floor((x-CH.g.mg.l)/CH.g.step)));
+  const hover=(x,y)=>{CH.hover=idxAt(x);CH.hy=y;paintXh();};
+  el.addEventListener("pointerdown",e=>{try{el.setPointerCapture(e.pointerId);}catch(_){}P.set(e.pointerId,{x:e.clientX});moved=false;
+    if(P.size===1)drag={x:e.clientX,off:CH.off,tp:e.pointerType};
+    else if(P.size===2){const a=[...P.values()];pin={d:Math.abs(a[0].x-a[1].x)||1,nb:chartWin(CH.s.bars).nb};drag=null;moved=true;}});
+  el.addEventListener("pointermove",e=>{
+    if(!P.has(e.pointerId)){if(e.pointerType==="mouse"){const q=px(e);hover(q.x,q.y);}return;}
+    P.set(e.pointerId,{x:e.clientX});
+    if(pin&&P.size===2){const a=[...P.values()],d=Math.abs(a[0].x-a[1].x)||1;chartZoomTo(Math.round(pin.nb*pin.d/d),.5);return;}
+    if(drag){const q=px(e),dx=(e.clientX-drag.x)*q.sc;if(Math.abs(dx)>5)moved=true;
+      if(moved){CH.off=drag.off+Math.round(dx/CH.g.step);CH.hover=null;CH.hy=null;redraw();}
+      else if(drag.tp==="mouse")hover(q.x,q.y);}
+  });
+  const end=e=>{const had=P.has(e.pointerId);P.delete(e.pointerId);if(P.size<2)pin=null;
+    if(had&&!moved&&e.pointerType!=="mouse"&&P.size===0){const q=px(e),i=idxAt(q.x);if(CH.hover===i){CH.hover=null;CH.hy=null;}else{CH.hover=i;CH.hy=q.y;}paintXh();}
+    if(P.size===0)drag=null;else if(P.size===1){const r=[...P.values()][0];drag={x:r.x,off:CH.off,tp:"touch"};}};
+  el.addEventListener("pointerup",end);el.addEventListener("pointercancel",end);
+  el.addEventListener("pointerleave",e=>{if(e.pointerType==="mouse"&&P.size===0){CH.hover=null;CH.hy=null;paintXh();}});
+  el.addEventListener("wheel",e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();const q=px(e),g=CH.g;chartZoomTo(Math.round(chartWin(CH.s.bars).nb*(e.deltaY>0?1.15:1/1.15)),Math.max(0,Math.min(1,(q.x-g.mg.l)/(g.step*g.N))));},{passive:false});
 }
 function scrollRatios(){document.querySelectorAll("#view details[open] .rscroll").forEach(e=>{e.scrollLeft=e.scrollWidth;});}
 function viewTech(){
@@ -972,11 +1329,13 @@ function viewTech(){
   if(!s.hasPx||s.bars.length<1){v0.innerHTML=picker(s)+stockHead(s)+'<div class="'+card+' mt-4 p-6 text-center text-sm text-muted">'+(s.hasPx?"Chưa có đủ nến để vẽ biểu đồ.":"Chưa có giá lịch sử của "+s.t+". Chọn Dữ liệu → Worker trung gian để cấu hình, sau đó chọn lại mã để nạp BCTC và lịch sử. Mã này không thuộc nhóm crawler định kỳ 57 mã.")+'</div>';return;}
   const ts=withTech(s,barsFor(s)),t=readTech(ts),v=val(s),x=crossRead(v.verdict,ts.trend,ts.rsi);
   const bias={up:"bg-up-soft text-up",down:"bg-down-soft text-down",flat:"bg-line text-muted"}[t.bias];
-  v0.innerHTML=picker(s)+stockHead(s)+'<div class="mt-4 grid gap-4 lg:grid-cols-5"><div class="'+card+' p-3 lg:col-span-3"><div class="mb-2 flex flex-wrap items-center justify-between gap-2"><div class="flex gap-1.5" role="group" aria-label="Khung nến">'+[["D","Ngày"],["W","Tuần"],["M","Tháng"]].map(([k,l])=>'<button type="button" data-candle="'+k+'" aria-pressed="'+(D.candle===k)+'" class="rounded-full border px-3 py-1 text-sm '+(D.candle===k?'border-ink bg-ink text-paper':'border-line bg-paper')+'">'+l+'</button>').join("")+'</div><div class="flex gap-1.5" role="group" aria-label="Khoảng hiển thị">'+["3M","6M","1Y"].map(r=>'<button type="button" data-range="'+r+'" aria-pressed="'+(D.range===r)+'" class="rounded-full border px-3 py-1 text-sm '+(D.range===r?'border-ink bg-ink text-paper':'border-line bg-paper')+'">'+r+'</button>').join("")+'</div><div class="flex flex-wrap gap-3 text-[11px] text-muted"><span><i class="inline-block h-0.5 w-3 bg-brass align-middle"></i> MA20</span><span><i class="inline-block h-0.5 w-3 bg-ink align-middle"></i> MA50</span></div></div><p class="mb-2 text-[11px] text-muted">Nến '+({D:"ngày",W:"tuần",M:"tháng"}[D.candle])+' · khoảng '+D.range+'. Chỉ báo tính theo khung nến đã chọn.</p><div id="chartBox"></div></div>'+
+  v0.innerHTML=picker(s)+stockHead(s)+'<div class="mt-4 grid gap-4 lg:grid-cols-5"><div class="'+card+' p-3 lg:col-span-3"><div class="mb-2 flex flex-wrap items-center justify-between gap-2"><div class="flex gap-1.5" role="group" aria-label="Khung thời gian">'+[["D","Ngày"],["W","Tuần"],["M","Tháng"]].map(([k,l])=>'<button type="button" data-candle="'+k+'" aria-pressed="'+(D.candle===k)+'" class="rounded-full border px-3.5 py-1 text-sm font-medium '+(D.candle===k?'border-ink bg-ink text-paper':'border-line bg-paper')+'">'+l+'</button>').join("")+'</div><div class="flex items-center gap-1.5" role="group" aria-label="Thu phóng"><button type="button" data-zoom="out" aria-label="Thu nhỏ" class="h-8 w-8 rounded-full border border-line bg-paper text-base leading-none">−</button><button type="button" data-zoom="in" aria-label="Phóng to" class="h-8 w-8 rounded-full border border-line bg-paper text-base leading-none">+</button><button type="button" data-zoom="reset" class="rounded-full border border-line bg-paper px-3 py-1 text-sm">Mới nhất</button></div></div>'+
+  '<div class="mb-2 flex flex-wrap items-center justify-between gap-2"><div class="flex flex-wrap gap-1" role="group" aria-label="Khoảng hiển thị">'+CHART_SPANS[D.candle].map(([r,l])=>'<button type="button" data-range="'+r+'" class="rounded-md border border-line bg-paper px-2.5 py-0.5 text-xs">'+l+'</button>').join("")+'</div><div class="flex flex-wrap gap-3 text-[11px] text-muted"><span><i class="inline-block h-0.5 w-3 bg-brass align-middle"></i> MA20</span><span><i class="inline-block h-0.5 w-3 bg-ink align-middle"></i> MA50</span></div></div><div id="chartBox"></div></div>'+
   '<div class="space-y-4 lg:col-span-2"><div class="'+card+' p-4"><span class="rounded-md px-2.5 py-1 text-xs font-semibold '+bias+'">'+TREND_LABEL[ts.trend||"mixed"]+'</span><h2 class="mt-2 font-semibold">'+esc(t.title)+'</h2><p class="mt-1 text-sm">'+esc(t.summary)+'</p>'+
   '<dl class="mt-3 divide-y divide-line text-sm">'+[["RSI 14",nv(ts.rsi,0)+" · "+t.rsiLabel],["MACD",t.macdLabel],["Khối lượng",t.volumeLabel],["Vùng giá",t.levelLabel],["Hỗ trợ / kháng cự 20 nến",vnd(ts.support)+" / "+vnd(ts.resistance)],["MA20 / MA50",vnd(ts.ma20)+" / "+vnd(ts.ma50)]].map(r=>'<div class="py-2"><dt class="text-xs text-muted">'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>').join("")+'</dl>'+(D.candle==="M"&&ts.bars.length<50?'<p class="mt-2 text-xs text-muted">Có '+ts.bars.length+' nến tháng trong lịch sử đã tải; chưa đủ 50 nến để tính MA50, nên phân tích dài hạn theo tháng còn hạn chế.</p>':'')+'</div>'+
   '<div class="'+card+' p-4"><div class="text-xs text-muted">Đọc chéo với định giá ('+v.verdictLabel+')</div><h2 class="font-semibold">'+esc(x.title)+'</h2><p class="mt-1 text-sm">'+esc(x.body)+'</p><button type="button" data-step="2" class="mt-3 '+BTN+'">← Xem định giá</button></div></div></div>';
-  const bx=$("chartBox");if(bx)bx.innerHTML=chartSvg(ts,Math.max(280,Math.floor(bx.clientWidth)||340));
+  if(CH.key!==s.t+"|"+D.candle){chartReset();CH.key=s.t+"|"+D.candle;}
+  drawChart(ts);
 }
 
 /* =================== Cài đặt và dữ liệu =================== */
@@ -1009,8 +1368,9 @@ document.addEventListener("click",e=>{
   if((x=g("[data-ex]"))){const a=D.F.exchanges,i=a.indexOf(x.dataset.ex);if(i<0)a.push(x.dataset.ex);else a.splice(i,1);D.more=true;setF("exchanges",a);viewScreen();return;}
   if((x=g("[data-sec]"))){const a=D.F.sectors,i=a.indexOf(x.dataset.sec);if(i<0)a.push(x.dataset.sec);else a.splice(i,1);D.more=true;setF("sectors",a);viewScreen();return;}
   if((x=g("[data-sort]"))){if(D.sortKey===x.dataset.sort)D.sortDir*=-1;else{D.sortKey=x.dataset.sort;D.sortDir=x.dataset.sort==="t"?1:-1;}saveDesk();renderRes();return;}
-  if((x=g("[data-range]"))){D.range=x.dataset.range;saveDesk();viewTech();return;}
-  if((x=g("[data-candle]"))){D.candle=x.dataset.candle;saveDesk();viewTech();return;}
+  if((x=g("[data-zoom]"))){if(!CH.s)return;const Wn=chartWin(CH.s.bars);if(x.dataset.zoom==="reset"){chartReset();redraw();}else chartZoomTo(Math.round(Wn.nb*(x.dataset.zoom==="in"?1/1.4:1.4)),1);return;}
+  if((x=g("[data-range]"))){D.range=x.dataset.range;chartReset();saveDesk();if(CH.s)redraw();else viewTech();return;}
+  if((x=g("[data-candle]"))){D.candle=x.dataset.candle;D.range=CHART_DEF[D.candle];chartReset();saveDesk();viewTech();return;}
   if((x=g("[data-act]"))){const a=x.dataset.act;
     if(a==="settings")openSheet();else if(a==="closeSheet")closeSheet();
     else if(a==="resetF"){D.F=defaultFilters();saveDesk();viewScreen();}
