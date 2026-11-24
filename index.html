@@ -328,8 +328,16 @@ function kindOf(t,o){const m=META[t];if(m)return m.s==="Ngân hàng"?"nganhang":
 const META_LIST=[{"t":"VCB","n":"Vietcombank","f":"Ngân hàng Ngoại thương Việt Nam","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng thương mại nhà nước, mạng lưới bán lẻ rộng."},{"t":"BID","n":"BIDV","f":"Ngân hàng Đầu tư và Phát triển","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng thương mại nhà nước, dư nợ doanh nghiệp lớn."},{"t":"CTG","n":"VietinBank","f":"Ngân hàng Công thương Việt Nam","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng thương mại nhà nước."},{"t":"TCB","n":"Techcombank","f":"Ngân hàng Kỹ thương","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng tư nhân, bán lẻ và khách hàng khá giả."},{"t":"MBB","n":"MB Bank","f":"Ngân hàng Quân đội","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng tư nhân, bán lẻ và hệ sinh thái quân đội."},{"t":"VPB","n":"VPBank","f":"Ngân hàng Việt Nam Thịnh vượng","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng tư nhân, mảng tài chính tiêu dùng lớn."},{"t":"ACB","n":"ACB","f":"Ngân hàng Á Châu","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng tư nhân, thế mạnh khách hàng cá nhân."},{"t":"STB","n":"Sacombank","f":"Ngân hàng Sài Gòn Thương Tín","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng tư nhân đang trong nhịp phục hồi lợi nhuận."},{"t":"HDB","n":"HDBank","f":"Ngân hàng Phát triển TP.HCM","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng tư nhân, tăng trưởng tín dụng cao."},{"t":"LPB","n":"LPBank","f":"Ngân hàng Lộc Phát","x":"HOSE","s":"Ngân hàng","b":"Ngân hàng tư nhân, mạng lưới bán lẻ rộng."},{"t":"HPG","n":"Hòa Phát","f":"Tập đoàn Hòa Phát","x":"HOSE","s":"Thép","b":"Sản xuất thép xây dựng và thép dẹt lớn nhất nước."},{"t":"HSG","n":"Hoa Sen","f":"Tập đoàn Hoa Sen","x":"HOSE","s":"Thép","b":"Tôn mạ và ống thép, phụ thuộc giá nguyên liệu."},{"t":"NKG","n":"Nam Kim","f":"Thép Nam Kim","x":"HOSE","s":"Thép","b":"Tôn mạ, xuất khẩu chiếm tỷ trọng lớn."},{"t":"VHM","n":"Vinhomes","f":"Vinhomes","x":"HOSE","s":"Bất động sản","b":"Phát triển khu đô thị và căn hộ quy mô lớn."},{"t":"VIC","n":"Vingroup","f":"Tập đoàn Vingroup","x":"HOSE","s":"Bất động sản","b":"Tập đoàn đa ngành, bất động sản vẫn là trụ chính."},{"t":"KDH","n":"Khang Điền","f":"Nhà Khang Điền","x":"HOSE","s":"Bất động sản","b":"Nhà ở tại TP.HCM, quỹ đất sạch."},{"t":"NLG","n":"Nam Long","f":"Nam Long","x":"HOSE","s":"Bất động sản","b":"Nhà ở vừa túi tiền và khu đô thị vùng ven."},{"t":"PDR","n":"Phát Đạt","f":"Phát Đạt","x":"HOSE","s":"Bất động sản","b":"Bất động sản dân cư, lợi nhuận còn mỏng."},{"t":"DIG","n":"DIC Corp","f":"Tổng công ty Đầu tư Phát triển Xây dựng","x":"HOSE","s":"Bất động sản","b":"Bất động sản du lịch và đô thị."},{"t":"NVL","n":"Novaland","f":"Novaland","x":"HOSE","s":"Bất động sản","b":"Chủ đầu tư đô thị, đang lỗ và tái cấu trúc nợ."},{"t":"IDC","n":"IDICO","f":"Tổng công ty IDICO","x":"HNX","s":"Bất động sản","b":"Khu công nghiệp và năng lượng."},{"t":"SSI","n":"SSI","f":"Chứng khoán SSI","x":"HOSE","s":"Chứng khoán","b":"Công ty chứng khoán lớn, môi giới và tự doanh."},{"t":"HCM","n":"HSC","f":"Chứng khoán TP.HCM","x":"HOSE","s":"Chứng khoán","b":"Môi giới tổ chức và khách hàng cá nhân."},{"t":"VND","n":"VNDirect","f":"Chứng khoán VNDirect","x":"HOSE","s":"Chứng khoán","b":"Chứng khoán bán lẻ, nhạy với thanh khoản thị trường."},{"t":"VCI","n":"Vietcap","f":"Chứng khoán Vietcap","x":"HOSE","s":"Chứng khoán","b":"Nghiên cứu và ngân hàng đầu tư."},{"t":"SHS","n":"SHS","f":"Chứng khoán Sài Gòn – Hà Nội","x":"HNX","s":"Chứng khoán","b":"Chứng khoán trên HNX, tự doanh chiếm phần lớn."},{"t":"MBS","n":"MBS","f":"Chứng khoán MB","x":"HNX","s":"Chứng khoán","b":"Chứng khoán gắn với hệ sinh thái MB."},{"t":"VNM","n":"Vinamilk","f":"Sữa Việt Nam","x":"HOSE","s":"Tiêu dùng","b":"Sữa và đồ uống, tiền mặt dồi, tăng trưởng chậm."},{"t":"SAB","n":"Sabeco","f":"Bia Sài Gòn","x":"HOSE","s":"Tiêu dùng","b":"Bia, biên lợi nhuận cao, nhu cầu bão hòa."},{"t":"MSN","n":"Masan","f":"Tập đoàn Masan","x":"HOSE","s":"Tiêu dùng","b":"Bán lẻ, hàng tiêu dùng và tài nguyên."},{"t":"QNS","n":"Quảng Ngãi","f":"Đường Quảng Ngãi","x":"HOSE","s":"Tiêu dùng","b":"Đường và sữa đậu nành, cổ tức tiền mặt đều."},{"t":"MWG","n":"Thế Giới Di Động","f":"Đầu tư Thế Giới Di Động","x":"HOSE","s":"Bán lẻ","b":"Chuỗi điện máy và tạp hóa."},{"t":"FRT","n":"FPT Retail","f":"Bán lẻ FPT","x":"HOSE","s":"Bán lẻ","b":"Chuỗi dược phẩm và máy tính."},{"t":"PNJ","n":"PNJ","f":"Vàng bạc Đá quý Phú Nhuận","x":"HOSE","s":"Bán lẻ","b":"Bán lẻ trang sức, vòng quay hàng tồn nhanh."},{"t":"DGW","n":"Digiworld","f":"Thế Giới Số","x":"HOSE","s":"Bán lẻ","b":"Phân phối điện thoại và hàng công nghệ."},{"t":"FPT","n":"FPT","f":"Tập đoàn FPT","x":"HOSE","s":"Công nghệ","b":"Phần mềm xuất khẩu, viễn thông và giáo dục."},{"t":"CMG","n":"CMC","f":"Tập đoàn Công nghệ CMC","x":"HOSE","s":"Công nghệ","b":"Tích hợp hệ thống và dịch vụ công nghệ."},{"t":"GAS","n":"PV Gas","f":"Tổng công ty Khí Việt Nam","x":"HOSE","s":"Dầu khí","b":"Vận chuyển và kinh doanh khí khô."},{"t":"PLX","n":"Petrolimex","f":"Tập đoàn Xăng dầu Việt Nam","x":"HOSE","s":"Dầu khí","b":"Phân phối xăng dầu, biên mỏng, doanh thu lớn."},{"t":"PVS","n":"PVS","f":"Dịch vụ Kỹ thuật Dầu khí","x":"HOSE","s":"Dầu khí","b":"Dịch vụ cơ khí và tàu dầu khí."},{"t":"PVD","n":"PV Drilling","f":"Khoan dầu khí","x":"HOSE","s":"Dầu khí","b":"Cho thuê giàn khoan, nhạy với giá dầu."},{"t":"BSR","n":"Lọc hóa dầu Bình Sơn","f":"Lọc hóa dầu Bình Sơn","x":"UPCOM","s":"Dầu khí","b":"Nhà máy lọc dầu, lợi nhuận theo crack spread."},{"t":"OIL","n":"PV Oil","f":"Dầu Việt Nam","x":"UPCOM","s":"Dầu khí","b":"Kinh doanh dầu thô và xăng dầu."},{"t":"DGC","n":"Đức Giang","f":"Hóa chất Đức Giang","x":"HOSE","s":"Hóa chất","b":"Phốt pho vàng và hóa chất, cổ tức cao khi giá hàng hóa thuận."},{"t":"DCM","n":"Đạm Cà Mau","f":"Phân bón Dầu khí Cà Mau","x":"HOSE","s":"Hóa chất","b":"Sản xuất ure, lợi nhuận theo giá phân bón."},{"t":"DPM","n":"Đạm Phú Mỹ","f":"Phân bón và Hóa chất Dầu khí","x":"HOSE","s":"Hóa chất","b":"Ure Phú Mỹ, tiền mặt lớn, tăng trưởng thấp."},{"t":"POW","n":"PV Power","f":"Điện lực Dầu khí","x":"HOSE","s":"Điện","b":"Nhiệt điện khí và than."},{"t":"REE","n":"Cơ điện lạnh","f":"Cơ điện lạnh","x":"HOSE","s":"Điện","b":"Điện, nước và cơ điện, cổ tức đều."},{"t":"NT2","n":"Nhơn Trạch 2","f":"Điện lực Nhơn Trạch 2","x":"HOSE","s":"Điện","b":"Nhà máy điện khí, chi trả cổ tức cao."},{"t":"BMP","n":"Bình Minh","f":"Nhựa Bình Minh","x":"HOSE","s":"Vật liệu","b":"Ống nhựa dân dụng, ít nợ, cổ tức tiền mặt."},{"t":"GVR","n":"Tập đoàn Cao su","f":"Tập đoàn Công nghiệp Cao su","x":"HOSE","s":"Vật liệu","b":"Cao su và khu công nghiệp."},{"t":"PHR","n":"Phước Hòa","f":"Cao su Phước Hòa","x":"HOSE","s":"Vật liệu","b":"Cao su và chuyển đổi đất khu công nghiệp."},{"t":"VCS","n":"Vicostone","f":"Đá thạch anh Vicostone","x":"HNX","s":"Vật liệu","b":"Đá nhân tạo xuất khẩu."},{"t":"VJC","n":"Vietjet","f":"Hàng không Vietjet","x":"HOSE","s":"Hàng không","b":"Hãng bay giá rẻ, lợi nhuận nhạy với nhiên liệu."},{"t":"HVN","n":"Vietnam Airlines","f":"Hãng hàng không Quốc gia Việt Nam","x":"HOSE","s":"Hàng không","b":"Hãng bay quốc gia, còn lỗ lũy kế và nợ cao."},{"t":"TNG","n":"Dệt may TNG","f":"Đầu tư và Thương mại TNG","x":"HNX","s":"Dệt may","b":"Gia công xuất khẩu, đơn hàng theo mùa."},{"t":"VEA","n":"VEAM","f":"Máy động lực và Máy nông nghiệp","x":"UPCOM","s":"Công nghiệp","b":"Liên doanh ô tô, máy, cổ tức rất cao so với giá."}];
 const META={};META_LIST.forEach(m=>{META[m.t]=m;});
 const FIN_LABELS=["Ngân hàng","Chứng khoán"];
-let FINS={},RAW={},PX={},LIVE={},USER={},STATUS=null,INDEX=null,STOCKS=[],SMAP=new Map();
+let FINS={},RAW={},PX={},LIVE={},USER={},STATUS=null,INDEX=null,STOCKS=[],SMAP=new Map(),UNIVERSE={},UNIVERSE_INFO=null;
 const DATA_BASE="./data/";
+
+async function loadUniverse(){
+  const u=await getJson("./universe.json");
+  if(!u||!Array.isArray(u.stocks))return false;
+  UNIVERSE_INFO=u;UNIVERSE={};
+  u.stocks.forEach(x=>{if(x&&/^[A-Z0-9]{2,10}$/.test(x.t||""))UNIVERSE[x.t]={t:x.t,n:x.n||x.t,f:x.n||x.t,x:x.x||"—",s:x.i||"Khác",b:""};});
+  return Object.keys(UNIVERSE).length>0;
+}
 
 function pxOk(p){return p&&typeof p==="object"&&Array.isArray(p.d)&&p.d.length>=30&&["o","h","l","c","v"].every(k=>Array.isArray(p[k])&&p[k].length===p.d.length)&&p.c.every(x=>typeof x==="number"&&x>0);}
 function ingestFin(o,keep){
@@ -368,6 +376,7 @@ function loadUser(){
 async function getJson(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok)return null;return await r.json();}catch(e){return null;}}
 async function pool(list,n,fn){let i=0;await Promise.all(Array.from({length:Math.min(n,list.length)},async()=>{while(i<list.length){const x=list[i++];try{await fn(x);}catch(e){}}}));}
 async function loadFiles(){
+  await loadUniverse();
   INDEX=await getJson(DATA_BASE+"index.json");STATUS=await getJson(DATA_BASE+"status.json");
   if(!INDEX)return false;
   const ok=a=>(Array.isArray(a)?a:[]).filter(t=>/^[A-Za-z0-9]{2,10}$/.test(t)).map(t=>t.toUpperCase()).slice(0,300);
@@ -420,7 +429,8 @@ function hideProg(){const e=$("prog");if(e)e.hidden=true;}
 const inMarket=()=>{const d=new Date(Date.now()+7*3600e3),w=d.getUTCDay(),m=d.getUTCHours()*60+d.getUTCMinutes();return w>0&&w<6&&m>=9*60&&m<=15*60;};
 async function refreshLive(force){
   if(!wk()||(!force&&!inMarket()))return false;
-  const L=STOCKS.map(s=>s.t).slice(0,80);if(!L.length)return false;
+  const loaded=STOCKS.filter(s=>s.hasPx),first=D.sel&&loaded.some(s=>s.t===D.sel)?[D.sel]:[];
+  const L=[...first,...loaded.map(s=>s.t).filter(t=>!first.includes(t))].slice(0,80);if(!L.length)return false;
   try{const j=await wkGet("/quote?symbols="+L.join(","),15000);
     (j.quotes||[]).forEach(q=>{if(q&&q.t&&q.price>0)LIVE[q.t]={price:q.price,ref:q.ref,changePct:q.changePct,at:j.at||new Date().toISOString()};});
     rebuild();renderAll();return true;}catch(e){return false;}
@@ -438,14 +448,36 @@ function indicators(px){
   const sig=first<0?Array(n).fill(null):ema(macd.map(x=>x==null?0:x),9,first);
   return px.d.map((d,i)=>({date:d,open:px.o[i],high:px.h[i],low:px.l[i],close:c[i],volume:px.v[i],ma20:m20[i],ma50:m50[i],rsi:r[i],macd:macd[i],signal:sig[i],hist:macd[i]!=null&&sig[i]!=null?macd[i]-sig[i]:null}));
 }
+function barsFor(s,frame=D.candle){
+  const p=PX[s.t];if(!p)return[];
+  if(frame==="D")return indicators(p);
+  const groups=new Map();
+  p.d.forEach((date,i)=>{
+    const dt=new Date(date+"T00:00:00Z");let key;
+    if(frame==="M")key=date.slice(0,7);
+    else{const wd=(dt.getUTCDay()+6)%7;dt.setUTCDate(dt.getUTCDate()-wd);key=dt.toISOString().slice(0,10);}
+    let b=groups.get(key);
+    if(!b){b={date,open:p.o[i],high:p.h[i],low:p.l[i],close:p.c[i],volume:p.v[i]||0};groups.set(key,b);}
+    else{b.high=Math.max(b.high,p.h[i]);b.low=Math.min(b.low,p.l[i]);b.close=p.c[i];b.volume+=(p.v[i]||0);}
+  });
+  const a=[...groups.values()];
+  return indicators({d:a.map(b=>b.date),o:a.map(b=>b.open),h:a.map(b=>b.high),l:a.map(b=>b.low),c:a.map(b=>b.close),v:a.map(b=>b.volume)});
+}
+function withTech(s,bars){
+  const last=bars[bars.length-1]||{},w=bars.slice(-20),price=last.close;
+  return Object.assign({},s,{bars,price,ma20:last.ma20,ma50:last.ma50,rsi:last.rsi,macd:last.macd,macdSignal:last.signal,macdHist:last.hist,
+    avgVolume:w.length?w.reduce((a,b)=>a+b.volume,0)/w.length:0,lastVolume:last.volume||0,
+    support:w.length?Math.min(...w.map(b=>b.low)):null,resistance:w.length?Math.max(...w.map(b=>b.high)):null,
+    trend:last.ma20!=null&&last.ma50!=null?trendOf(price,last.ma20,last.ma50):"mixed"});
+}
 const trendOf=(p,a,b)=>p>a&&a>b?"up":(p<=a&&p>b&&a>=b)?"pullback":(p<a&&a<b)?"down":"mixed";
 const TREND_LABEL={up:"Tăng",pullback:"Điều chỉnh",down:"Giảm",mixed:"Đi ngang"};
 
 /* =================== Dựng dữ liệu từng mã =================== */
-function sectorLabel(t,f){const m=META[t];if(m)return m.s;if(f)return f.sector==="nganhang"?"Ngân hàng":f.sector==="ck"?"Chứng khoán":f.sector==="bds"?"Bất động sản":"Khác";return"Khác";}
+function sectorLabel(t,f){const m=META[t];if(m)return m.s;if(f)return f.sector==="nganhang"?"Ngân hàng":f.sector==="ck"?"Chứng khoán":f.sector==="bds"?"Bất động sản":"Khác";const u=UNIVERSE[t];return u&&u.s&&u.s!=="Khác"?u.s:"Khác";}
 function mk(t){
-  const f=FINS[t],px=PX[t];if(!f&&!px)return null;
-  const m=META[t]||{t,n:t,f:t,x:"—",b:""},label=sectorLabel(t,f),financial=FIN_LABELS.includes(label);
+  const f=FINS[t],px=PX[t];if(!f&&!px&&!UNIVERSE[t]&&!META[t])return null;
+  const m=META[t]||UNIVERSE[t]||{t,n:t,f:t,x:"—",b:""},label=sectorLabel(t,f),financial=FIN_LABELS.includes(label);
   const S={t,name:m.n,full:m.f,exchange:m.x,sector:label,blurb:m.b||"",financial,hasFin:!!f,hasPx:!!px,pxSrc:px?px.src:"",asof:px?px.asof:null,fin:f||null,
     price:null,changePct:null,live:false,bars:[],pe:null,pb:null,roe:null,roa:null,netMargin:null,debtEquity:null,revGrowth:null,epsGrowth:null,divYield:null,mcap:null,eps:null,bvps:null,ps:null,shares:null,
     kind:null,ext:null,ma20:null,ma50:null,rsi:null,macd:null,macdSignal:null,macdHist:null,avgVolume:null,avgValue:null,support:null,resistance:null,trend:null,lastVolume:null,q:null,lastP:f?f.last:null};
@@ -481,7 +513,7 @@ function mk(t){
   return S;
 }
 function rebuild(){
-  const set=new Set([...META_LIST.map(m=>m.t),...Object.keys(FINS),...Object.keys(PX)]);
+  const set=new Set([...META_LIST.map(m=>m.t),...Object.keys(UNIVERSE),...Object.keys(FINS),...Object.keys(PX)]);
   STOCKS=[...set].map(mk).filter(Boolean);SMAP=new Map(STOCKS.map(s=>[s.t,s]));
   VALS=new Map();
 }
@@ -594,7 +626,7 @@ function readTech(s){
   const vr=s.avgVolume>0?s.lastVolume/s.avgVolume:1;
   const volumeLabel=vr>=1.5?"Khối lượng phiên gần nhất đột biến":vr>=1.05?"Khối lượng nhỉnh hơn trung bình 20 phiên":"Thanh khoản trầm hơn trung bình";
   const toRes=(s.resistance-s.price)/s.price*100,toSup=(s.price-s.support)/s.price*100;
-  const levelLabel=toRes<1.5?"Giá đang sát đỉnh 20 phiên":toSup<1.5?"Giá đang sát đáy 20 phiên":"Còn khoảng "+toRes.toFixed(0)+"% lên đỉnh 20 phiên, "+toSup.toFixed(0)+"% về đáy";
+  const levelLabel=toRes<1.5?"Giá đang sát đỉnh 20 nến":toSup<1.5?"Giá đang sát đáy 20 nến":"Còn khoảng "+toRes.toFixed(0)+"% lên đỉnh 20 nến, "+toSup.toFixed(0)+"% về đáy";
   let bias="flat",title="Kỹ thuật trung tính",summary="Giá chưa chọn hướng rõ. Nên chờ giá đứng hẳn trên hoặc dưới MA20 trước khi gắn câu chuyện xu hướng.";
   if(s.trend==="up"&&s.rsi<70&&s.macdHist>=0){bias="up";title="Xu hướng tăng còn nguyên";summary="Giá trên MA20, MA20 trên MA50 và động lượng chưa đảo. Đây là nền thuận, miễn là RSI không bước vào vùng quá mua.";}
   else if(s.trend==="up"&&s.rsi>=70){bias="up";title="Tăng nhưng đã nóng";summary="Xu hướng trung hạn vẫn tăng, song RSI quá mua. Đuổi ở vùng này thường mua phần sóng đã đi.";}
@@ -716,7 +748,7 @@ function ratioGroups(s){
 }
 
 /* =================== Trạng thái giao diện =================== */
-let D={step:1,sel:null,F:defaultFilters(),sortKey:"mcap",sortDir:-1,discount:.12,growth:null,range:"6M",watch:[],more:false};
+let D={step:1,sel:null,F:defaultFilters(),sortKey:"mcap",sortDir:-1,discount:.12,growth:null,range:"6M",candle:"D",watch:[],more:false};
 function loadDesk(){try{const o=JSON.parse(lsGet("sang.desk","{}"));if(o&&typeof o==="object"){
   if([1,2,3].includes(o.step))D.step=o.step;if(typeof o.sel==="string"&&/^[A-Z0-9]{2,10}$/.test(o.sel))D.sel=o.sel;
   if(o.F&&typeof o.F==="object"){const d=defaultFilters();for(const k of Object.keys(d)){if(k in o.F&&typeof o.F[k]===typeof d[k]||(NUL.includes(k)&&(o.F[k]==null||typeof o.F[k]==="number")))d[k]=o.F[k];}D.F=d;}
@@ -724,8 +756,9 @@ function loadDesk(){try{const o=JSON.parse(lsGet("sang.desk","{}"));if(o&&typeof
   if(typeof o.discount==="number"&&o.discount>=.08&&o.discount<=.16)D.discount=o.discount;
   if(o.growth==null||typeof o.growth==="number")D.growth=o.growth;
   if(["3M","6M","1Y"].includes(o.range))D.range=o.range;
+  if(["D","W","M"].includes(o.candle))D.candle=o.candle;
   if(Array.isArray(o.watch))D.watch=o.watch.filter(t=>/^[A-Z0-9]{2,10}$/.test(t)).slice(0,100);}}catch(e){}}
-function saveDesk(){lsSet("sang.desk",JSON.stringify({step:D.step,sel:D.sel,F:D.F,sortKey:D.sortKey,sortDir:D.sortDir,discount:D.discount,growth:D.growth,range:D.range,watch:D.watch}));}
+function saveDesk(){lsSet("sang.desk",JSON.stringify({step:D.step,sel:D.sel,F:D.F,sortKey:D.sortKey,sortDir:D.sortDir,discount:D.discount,growth:D.growth,range:D.range,candle:D.candle,watch:D.watch}));}
 
 const VN30="ACB BCM BID BVH CTG FPT GAS GVR HDB HPG MBB MSN MWG PLX POW SAB SHB SSB SSI STB TCB TPB VCB VHM VIB VIC VJC VNM VPB VRE".split(" ");
 const SORTS=[["mcap","Vốn hóa"],["t","Mã"],["changePct","% thay đổi"],["pe","P/E"],["pb","P/B"],["roe","ROE"],["divYield","Cổ tức"],["revGrowth","Tăng doanh thu"],["rsi","RSI"],["qtot","Điểm báo cáo"],["avgValue","Giá trị GD"]];
@@ -747,7 +780,7 @@ function renderHead(){
 function renderFoot(){
   const dates=STOCKS.map(s=>s.asof).filter(Boolean).sort(),last=dates.length?dates[dates.length-1]:null;
   const live=STOCKS.some(s=>s.live);
-  $("foot").innerHTML='<p>'+(last?'Giá đóng cửa đến '+dmy(last)+(live?', một số mã đang lấy giá gần thời gian thực':'')+'. ':'')+'Báo cáo tài chính lấy từ CafeF. Số cổ phiếu và cổ tức là ước tính từ báo cáo.</p><p class="mt-1">Công cụ tham khảo, không phải khuyến nghị đầu tư.</p>';
+  $("foot").innerHTML='<p>'+(last?'Lịch sử nến ngày đóng cửa đến '+dmy(last)+'. ':'')+(live?'Một số mã có quote VPS tham khảo gần thời gian thực; Worker cache tối đa 15 giây, thời điểm Worker lấy dữ liệu không xác nhận timestamp gốc của nguồn. ':'')+'Biểu đồ dùng lịch sử nến ngày, tuần hoặc tháng, không phải biểu đồ realtime. Báo cáo tài chính lấy từ CafeF. Số cổ phiếu và cổ tức là ước tính từ báo cáo.</p><p class="mt-1">Công cụ tham khảo, không phải khuyến nghị đầu tư.</p>';
 }
 function renderAll(){renderHead();renderView();renderFoot();}
 function go(n){D.step=n;if(n>1&&!D.sel)D.sel=defaultSel();saveDesk();renderAll();window.scrollTo(0,0);}
@@ -767,7 +800,7 @@ function viewScreen(){
   if(!STOCKS.length){v.innerHTML=emptyData();return;}
   const F=D.F,secs=[...new Set(STOCKS.map(s=>s.sector))].sort(),exs=["HOSE","HNX","UPCOM"].filter(x=>STOCKS.some(s=>s.exchange===x));
   const pre=PRESETS.find(p=>p.id===F.preset);
-  v.innerHTML='<div class="mb-4"><h1 class="text-xl font-semibold">Tầm soát</h1><p class="text-sm text-muted">Lọc những mã đáng xem trước, rồi sang bước định giá.</p></div>'+
+  v.innerHTML='<div class="mb-4"><h1 class="text-xl font-semibold">Tầm soát</h1><p class="text-sm text-muted">Tìm trong snapshot '+(UNIVERSE_INFO?UNIVERSE_INFO.count.toLocaleString("vi-VN"):"các")+' mã HOSE/HNX/UPCoM. Chọn mã để nạp riêng BCTC và lịch sử giá; mã chưa tải sẽ để trống các chỉ số.</p></div>'+
   '<div class="'+card+' p-3 sm:p-4"><label class="sr-only" for="fq">Tìm mã hoặc tên</label><input id="fq" type="search" autocomplete="off" placeholder="Tìm mã, tên công ty, ngành" value="'+esc(F.query)+'" class="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm focus:border-brass"/>'+
   '<div class="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Bộ lọc nhanh">'+PRESETS.map(p=>'<button type="button" data-preset="'+p.id+'" aria-pressed="'+(F.preset===p.id)+'" class="rounded-full border px-3 py-1 text-sm '+(F.preset===p.id?'border-ink bg-ink text-paper':'border-line bg-paper hover:border-brass')+'">'+p.label+(p.id==="watch"&&D.watch.length?' ('+D.watch.length+')':'')+'</button>').join("")+'</div>'+
   '<p class="mt-2 text-xs text-muted" id="hint">'+esc(pre?pre.hint:"")+'</p>'+
@@ -814,8 +847,9 @@ function picker(s){
   return'<div class="mb-4 flex flex-wrap items-center gap-2"><label for="selT" class="text-sm text-muted">Mã</label><select id="selT" class="min-w-0 max-w-full rounded-md border border-line bg-card px-3 py-2 text-sm font-medium">'+L.map(x=>'<option value="'+x.t+'"'+(s&&x.t===s.t?' selected':'')+'>'+x.t+' — '+esc(x.name)+'</option>').join("")+'</select>'+(s?starBtn(s.t):'')+'<button type="button" data-step="1" class="ml-auto text-sm text-muted underline">← Về tầm soát</button></div>';
 }
 function stockHead(s){
+  const q=s.live&&LIVE[s.t],qAt=q&&q.at?new Date(q.at).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"";
   return'<div class="'+card+' p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><h1 class="text-xl font-semibold">'+s.t+' <span class="text-base font-normal text-muted">'+esc(s.name)+'</span></h1><p class="text-xs text-muted">'+esc(s.full)+' · '+esc(s.exchange)+' · '+esc(s.sector)+'</p></div>'+
-  '<div class="sm:text-right"><div class="font-mono text-2xl">'+(s.price!=null?vnd(s.price):"—")+'</div><div class="font-mono text-sm '+chgCl(s.changePct)+'">'+(s.price!=null?signedPct(s.changePct):"")+'</div><div class="text-[11px] text-muted">'+(s.live?"Giá gần thời gian thực":s.asof?"Đóng cửa "+dmy(s.asof):"Chưa có giá")+'</div></div></div></div>';
+  '<div class="sm:text-right"><div class="font-mono text-2xl">'+(s.price!=null?vnd(s.price):"—")+'</div><div class="font-mono text-sm '+chgCl(s.changePct)+'">'+(s.price!=null?signedPct(s.changePct):"")+'</div><div class="text-[11px] text-muted">'+(s.live?"Quote tham khảo · Worker lấy lúc "+qAt:s.asof?"Đóng cửa "+dmy(s.asof):"Chưa có giá")+'</div></div></div></div>';
 }
 function noStock(){return'<div class="'+card+' p-6 text-center text-sm text-muted">Chưa chọn mã nào. Về bước tầm soát để chọn một mã.</div>';}
 
@@ -896,7 +930,7 @@ function ratioCard(s){
 
 /* =================== Bước 3: Kỹ thuật =================== */
 function chartSvg(s,w){
-  const n={"3M":63,"6M":126,"1Y":250}[D.range],B=s.bars.slice(-n),N=B.length,mg={l:6,r:44},iw=w-mg.l-mg.r,step=iw/N,bw=Math.max(1,Math.min(9,step*.65));
+  const all=barsFor(s),n=D.candle==="D"?{"3M":63,"6M":126,"1Y":250}[D.range]:D.candle==="W"?{"3M":13,"6M":26,"1Y":52}[D.range]:{"3M":3,"6M":6,"1Y":12}[D.range],B=all.slice(-n),N=B.length,mg={l:6,r:44},iw=w-mg.l-mg.r,step=iw/Math.max(N,1),bw=Math.max(1,Math.min(9,step*.65));
   const X=i=>mg.l+step*(i+.5);
   const panel=(top,h,lo,hi,fmt,ticks)=>{const Y=v=>top+h-(v-lo)/((hi-lo)||1)*h;let g='';ticks.forEach(t=>{g+='<line x1="'+mg.l+'" x2="'+(w-mg.r)+'" y1="'+Y(t).toFixed(1)+'" y2="'+Y(t).toFixed(1)+'" stroke="#e3dcd0" stroke-width="1"/><text x="'+(w-mg.r+4)+'" y="'+(Y(t)+4).toFixed(1)+'" font-size="10" fill="#5c564c">'+fmt(t)+'</text>';});return{Y,g};};
   const hi=Math.max(...B.map(b=>b.high)),lo=Math.min(...B.map(b=>b.low)),pad=(hi-lo)*.06||hi*.02,P1=panel(8,230,lo-pad,hi+pad,axisPrice,[0,1,2,3,4].map(i=>lo+(hi-lo)*i/4));
@@ -921,14 +955,14 @@ function viewTech(){
   const s=D.sel&&SMAP.get(D.sel),v0=$("view");
   if(!STOCKS.length){v0.innerHTML=emptyData();return;}
   if(!s){v0.innerHTML=picker(null)+noStock();return;}
-  if(!s.hasPx||s.bars.length<60){v0.innerHTML=picker(s)+stockHead(s)+'<div class="'+card+' mt-4 p-6 text-center text-sm text-muted">'+(s.hasPx?"Mới có "+s.bars.length+" phiên, cần ít nhất 60 phiên để tính MA50 và vẽ biểu đồ.":"Chưa có giá lịch sử của "+s.t+". Chạy lại Action hoặc thêm mã qua Worker ở phần Dữ liệu.")+'</div>';return;}
-  const t=readTech(s),v=val(s),x=crossRead(v.verdict,s.trend,s.rsi);
+  if(!s.hasPx||s.bars.length<1){v0.innerHTML=picker(s)+stockHead(s)+'<div class="'+card+' mt-4 p-6 text-center text-sm text-muted">'+(s.hasPx?"Chưa có đủ nến để vẽ biểu đồ.":"Chưa có giá lịch sử của "+s.t+". Chọn Dữ liệu → Worker trung gian để cấu hình, sau đó chọn lại mã để nạp BCTC và lịch sử. Mã này không thuộc nhóm crawler định kỳ 57 mã.")+'</div>';return;}
+  const ts=withTech(s,barsFor(s)),t=readTech(ts),v=val(s),x=crossRead(v.verdict,ts.trend,ts.rsi);
   const bias={up:"bg-up-soft text-up",down:"bg-down-soft text-down",flat:"bg-line text-muted"}[t.bias];
-  v0.innerHTML=picker(s)+stockHead(s)+'<div class="mt-4 grid gap-4 lg:grid-cols-5"><div class="'+card+' p-3 lg:col-span-3"><div class="mb-2 flex items-center justify-between gap-2"><div class="flex gap-1.5">'+["3M","6M","1Y"].map(r=>'<button type="button" data-range="'+r+'" aria-pressed="'+(D.range===r)+'" class="rounded-full border px-3 py-1 text-sm '+(D.range===r?'border-ink bg-ink text-paper':'border-line bg-paper')+'">'+r+'</button>').join("")+'</div><div class="flex flex-wrap gap-3 text-[11px] text-muted"><span><i class="inline-block h-0.5 w-3 bg-brass align-middle"></i> MA20</span><span><i class="inline-block h-0.5 w-3 bg-ink align-middle"></i> MA50</span></div></div>'+'<div id="chartBox"></div></div>'+
-  '<div class="space-y-4 lg:col-span-2"><div class="'+card+' p-4"><span class="rounded-md px-2.5 py-1 text-xs font-semibold '+bias+'">'+TREND_LABEL[s.trend||"mixed"]+'</span><h2 class="mt-2 font-semibold">'+esc(t.title)+'</h2><p class="mt-1 text-sm">'+esc(t.summary)+'</p>'+
-  '<dl class="mt-3 divide-y divide-line text-sm">'+[["RSI 14",nv(s.rsi,0)+" · "+t.rsiLabel],["MACD",t.macdLabel],["Khối lượng",t.volumeLabel],["Vùng giá",t.levelLabel],["Hỗ trợ / kháng cự 20 phiên",vnd(s.support)+" / "+vnd(s.resistance)],["MA20 / MA50",vnd(s.ma20)+" / "+vnd(s.ma50)]].map(r=>'<div class="py-2"><dt class="text-xs text-muted">'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>').join("")+'</dl></div>'+
+  v0.innerHTML=picker(s)+stockHead(s)+'<div class="mt-4 grid gap-4 lg:grid-cols-5"><div class="'+card+' p-3 lg:col-span-3"><div class="mb-2 flex flex-wrap items-center justify-between gap-2"><div class="flex gap-1.5" role="group" aria-label="Khung nến">'+[["D","Ngày"],["W","Tuần"],["M","Tháng"]].map(([k,l])=>'<button type="button" data-candle="'+k+'" aria-pressed="'+(D.candle===k)+'" class="rounded-full border px-3 py-1 text-sm '+(D.candle===k?'border-ink bg-ink text-paper':'border-line bg-paper')+'">'+l+'</button>').join("")+'</div><div class="flex gap-1.5" role="group" aria-label="Khoảng hiển thị">'+["3M","6M","1Y"].map(r=>'<button type="button" data-range="'+r+'" aria-pressed="'+(D.range===r)+'" class="rounded-full border px-3 py-1 text-sm '+(D.range===r?'border-ink bg-ink text-paper':'border-line bg-paper')+'">'+r+'</button>').join("")+'</div><div class="flex flex-wrap gap-3 text-[11px] text-muted"><span><i class="inline-block h-0.5 w-3 bg-brass align-middle"></i> MA20</span><span><i class="inline-block h-0.5 w-3 bg-ink align-middle"></i> MA50</span></div></div><p class="mb-2 text-[11px] text-muted">Nến '+({D:"ngày",W:"tuần",M:"tháng"}[D.candle])+' · khoảng '+D.range+'. Chỉ báo tính theo khung nến đã chọn.</p><div id="chartBox"></div></div>'+
+  '<div class="space-y-4 lg:col-span-2"><div class="'+card+' p-4"><span class="rounded-md px-2.5 py-1 text-xs font-semibold '+bias+'">'+TREND_LABEL[ts.trend||"mixed"]+'</span><h2 class="mt-2 font-semibold">'+esc(t.title)+'</h2><p class="mt-1 text-sm">'+esc(t.summary)+'</p>'+
+  '<dl class="mt-3 divide-y divide-line text-sm">'+[["RSI 14",nv(ts.rsi,0)+" · "+t.rsiLabel],["MACD",t.macdLabel],["Khối lượng",t.volumeLabel],["Vùng giá",t.levelLabel],["Hỗ trợ / kháng cự 20 nến",vnd(ts.support)+" / "+vnd(ts.resistance)],["MA20 / MA50",vnd(ts.ma20)+" / "+vnd(ts.ma50)]].map(r=>'<div class="py-2"><dt class="text-xs text-muted">'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>').join("")+'</dl>'+(D.candle==="M"&&ts.bars.length<50?'<p class="mt-2 text-xs text-muted">Có '+ts.bars.length+' nến tháng trong lịch sử đã tải; chưa đủ 50 nến để tính MA50, nên phân tích dài hạn theo tháng còn hạn chế.</p>':'')+'</div>'+
   '<div class="'+card+' p-4"><div class="text-xs text-muted">Đọc chéo với định giá ('+v.verdictLabel+')</div><h2 class="font-semibold">'+esc(x.title)+'</h2><p class="mt-1 text-sm">'+esc(x.body)+'</p><button type="button" data-step="2" class="mt-3 '+BTN+'">← Xem định giá</button></div></div></div>';
-  const bx=$("chartBox");if(bx)bx.innerHTML=chartSvg(s,Math.max(280,Math.floor(bx.clientWidth)||340));
+  const bx=$("chartBox");if(bx)bx.innerHTML=chartSvg(ts,Math.max(280,Math.floor(bx.clientWidth)||340));
 }
 
 /* =================== Cài đặt và dữ liệu =================== */
@@ -940,7 +974,7 @@ function openSheet(){
   const sec=(h,b)=>'<section class="'+card+' p-4"><h2 class="mb-2 font-semibold">'+h+'</h2>'+b+'</section>';
   sh.innerHTML='<div class="mx-auto max-w-2xl space-y-4 safe-x py-4"><div class="flex items-center justify-between"><h1 class="text-lg font-semibold">Dữ liệu</h1><button type="button" data-act="closeSheet" class="'+BTN+'" id="shClose">Đóng</button></div>'+
    sec("Đang có",'<p class="text-sm">'+ws+' mã có báo cáo, '+ps+' mã có giá lịch sử'+(keys?', '+keys+' mã thêm tay trên máy này':'')+'.</p><div class="mt-2">'+stt+'</div>')+
-   sec("Worker trung gian",'<p class="mb-2 text-xs text-muted">Cần để lấy giá gần thời gian thực và thêm mã mới ngay trong app. Dán địa chỉ Worker (https://...workers.dev).</p><div class="flex gap-2"><input id="wkUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://ten-ban.workers.dev" value="'+esc(wk())+'" class="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm"/><button type="button" data-act="wkSave" class="'+BTN+'">Lưu</button></div>'+(wk()?'<button type="button" data-act="liveNow" class="mt-2 '+BTN+'">Lấy giá trực tiếp ngay</button>':''))+
+   sec("Worker trung gian",'<p class="mb-2 text-xs text-muted">Cần để nạp riêng BCTC/lịch sử cho mã ngoài dữ liệu định kỳ và lấy quote VPS tham khảo (cache Worker tối đa 15 giây, không phải timestamp gốc). Quote chỉ gọi mã đã có giá trong app, tối đa 80 mã/lần. Dán địa chỉ Worker (https://...workers.dev).</p><div class="flex gap-2"><input id="wkUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://ten-ban.workers.dev" value="'+esc(wk())+'" class="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm"/><button type="button" data-act="wkSave" class="'+BTN+'">Lưu</button></div>'+(wk()?'<button type="button" data-act="liveNow" class="mt-2 '+BTN+'">Cập nhật quote ngay</button>':''))+
    sec("Thêm mã",'<p class="mb-2 text-xs text-muted">Nhập một hoặc nhiều mã, cách nhau bằng dấu cách. Không có Worker thì CafeF thường bị trình duyệt chặn.</p><div class="flex gap-2"><input id="addT" type="text" autocomplete="off" autocapitalize="characters" placeholder="FPT HPG MWG" class="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm uppercase"/><button type="button" data-act="addGo" class="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper">Lấy</button></div><button type="button" data-act="addVN30" class="mt-2 '+BTN+'">Nạp VN30</button>')+
    sec("Xóa",'<p class="mb-2 text-xs text-muted">Xóa các mã bạn đã thêm tay và cài đặt trên máy này. Dữ liệu từ repo không bị ảnh hưởng.</p><button type="button" data-act="wipe" class="rounded-md border border-down px-3 py-2 text-sm text-down">Xóa dữ liệu trên máy</button>')+'</div>';
   sh.classList.remove("hidden");document.body.style.overflow="hidden";$("shClose").focus();
@@ -954,7 +988,7 @@ function matchPreset(){const d=defaultFilters(),F=D.F;const base=k=>k!=="query"&
 document.addEventListener("click",e=>{
   const g=s=>e.target.closest(s);let x;
   if((x=g("[data-watch]"))){e.stopPropagation();const t=x.dataset.watch,i=D.watch.indexOf(t);if(i<0)D.watch.push(t);else D.watch.splice(i,1);saveDesk();if(D.step===1)renderRes();else renderView();return;}
-  if((x=g("[data-pick]"))){D.sel=x.dataset.pick;go(2);return;}
+  if((x=g("[data-pick]"))){D.sel=x.dataset.pick;go(2);const s=SMAP.get(D.sel);if(s&&!s.hasFin&&!s.hasPx)addMany([D.sel]);return;}
   if((x=g("[data-step]"))){go(+x.dataset.step);return;}
   if((x=g("[data-preset]"))){const p=PRESETS.find(q=>q.id===x.dataset.preset),q=D.F.query;D.F=Object.assign(defaultFilters(),p.patch,{query:q,preset:p.id});saveDesk();viewScreen();return;}
   if((x=g("[data-clear]"))){const k=x.dataset.clear,d=defaultFilters();D.F[k]=d[k];D.F.preset=matchPreset();saveDesk();viewScreen();return;}
@@ -962,6 +996,7 @@ document.addEventListener("click",e=>{
   if((x=g("[data-sec]"))){const a=D.F.sectors,i=a.indexOf(x.dataset.sec);if(i<0)a.push(x.dataset.sec);else a.splice(i,1);D.more=true;setF("sectors",a);viewScreen();return;}
   if((x=g("[data-sort]"))){if(D.sortKey===x.dataset.sort)D.sortDir*=-1;else{D.sortKey=x.dataset.sort;D.sortDir=x.dataset.sort==="t"?1:-1;}saveDesk();renderRes();return;}
   if((x=g("[data-range]"))){D.range=x.dataset.range;saveDesk();viewTech();return;}
+  if((x=g("[data-candle]"))){D.candle=x.dataset.candle;saveDesk();viewTech();return;}
   if((x=g("[data-act]"))){const a=x.dataset.act;
     if(a==="settings")openSheet();else if(a==="closeSheet")closeSheet();
     else if(a==="resetF"){D.F=defaultFilters();saveDesk();viewScreen();}
@@ -987,7 +1022,7 @@ document.addEventListener("change",e=>{
   if(t.dataset&&t.dataset.f){const n=t.value===""?null:Number(t.value);D.more=true;setF(t.dataset.f,n!=null&&isFinite(n)?n:null);viewScreen();}
   else if(t.dataset&&t.dataset.fb){D.more=true;setF(t.dataset.fb,t.checked);viewScreen();}
   else if(t.id==="sortSel"){D.sortKey=t.value;D.sortDir=t.value==="t"?1:-1;saveDesk();renderRes();}
-  else if(t.id==="selT"){D.sel=t.value;saveDesk();renderView();}
+  else if(t.id==="selT"){D.sel=t.value;saveDesk();renderView();const s=SMAP.get(D.sel);if(s&&!s.hasFin&&!s.hasPx)addMany([D.sel]);}
   else if(t.id==="disc"){D.discount=Number(t.value)/100;saveDesk();viewValue();}
   else if(t.id==="gro"){const n=t.value===""?null:Number(t.value);D.growth=n!=null&&isFinite(n)?n:null;saveDesk();viewValue();}
 });

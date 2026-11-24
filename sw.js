@@ -1,7 +1,8 @@
-const CACHE_NAME = 'sang-v1';
+const CACHE_NAME = 'sang-v2';
 const ASSETS = [
   './',
   './index.html',
+  './universe.json',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   './icons/icon-192.png'
@@ -39,9 +40,10 @@ self.addEventListener('fetch', (event) => {
   const isAppShell = sameOrigin &&
     (requestUrl.pathname.endsWith('/') || requestUrl.pathname.endsWith('/index.html'));
   const isData = sameOrigin && requestUrl.pathname.includes('/data/');
+  const isUniverse = sameOrigin && requestUrl.pathname.endsWith('/universe.json');
 
   // HTML và data/*.json: ưu tiên mạng để cập nhật mới không bị cache cũ che; cache chỉ để dùng offline.
-  if (isAppShell || isData) {
+  if (isAppShell || isData || isUniverse) {
     event.respondWith(
       fetch(event.request, { cache: 'no-cache' }).then((response) => {
         if (response && response.ok) {
