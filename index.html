@@ -525,9 +525,9 @@ function valueStock(s,as){
 }
 function narrative(s,fair,mos,used,spread,verdict){
   if(fair==null||mos==null)return s.t+" không đủ mô hình cơ bản để ra một giá hợp lý. "+(s.roe!=null&&s.roe<0?"Doanh nghiệp đang lỗ, mọi bội số lợi nhuận đều tắt.":"Xem từng mô hình bên dưới để biết mô hình nào bị loại.");
-  const gap=nv(Math.abs(fair-s.price),0),side=mos>=0?"Giá thấp hơn mức hợp lý khoảng "+gap+" đồng, biên an toàn "+nv(mos,0)+"%.":"Giá cao hơn mức hợp lý khoảng "+gap+" đồng.";
+  const gap=nv(Math.abs(fair-s.price),0),side=Math.abs(mos)<8?"Giá đang gần mức hợp lý (chênh khoảng "+gap+" đồng, "+nv(Math.abs(mos),0)+"%).":mos>=0?"Giá thấp hơn mức hợp lý khoảng "+gap+" đồng, biên an toàn "+nv(mos,0)+"%.":"Giá cao hơn mức hợp lý khoảng "+gap+" đồng.";
   const b=[s.name+" được ghép từ "+used+" mô hình. "+side];
-  if(spread!=null&&spread>=1.7)b.push("Các mô hình lệch nhau nhiều, đừng coi một con số hợp lý là chân lý.");
+  if(spread!=null&&spread>=1.7)b.push("Các mô hình lệch nhau nhiều, đừng coi một con số hợp lý là chân lý.");else if(spread!=null&&spread>=1.3)b.push("Các mô hình lệch nhau vừa phải.");
   if(s.roe!=null&&s.roe<0)b.push("ROE âm, phần định giá chỉ là tham khảo thô.");else if(s.roe!=null&&s.roe<8&&verdict!=="rich")b.push("ROE dưới 8%: mức giá thấp có thể là bẫy giá trị, không phải quà.");
   if(s.sector!=="Ngân hàng"&&(s.debtEquity||0)>1.5)b.push("Nợ trên vốn chủ cao, biên an toàn cần dày hơn doanh nghiệp ít nợ.");
   return b.join(" ");
@@ -719,7 +719,7 @@ function picker(s){
 }
 function stockHead(s){
   return'<div class="'+card+' p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><h1 class="text-xl font-semibold">'+s.t+' <span class="text-base font-normal text-muted">'+esc(s.name)+'</span></h1><p class="text-xs text-muted">'+esc(s.full)+' · '+esc(s.exchange)+' · '+esc(s.sector)+'</p></div>'+
-  '<div class="text-right"><div class="font-mono text-2xl">'+(s.price!=null?vnd(s.price):"—")+'</div><div class="font-mono text-sm '+chgCl(s.changePct)+'">'+(s.price!=null?signedPct(s.changePct):"")+'</div><div class="text-[11px] text-muted">'+(s.live?"Giá gần thời gian thực":s.asof?"Đóng cửa "+dmy(s.asof):"Chưa có giá")+'</div></div></div></div>';
+  '<div class="sm:text-right"><div class="font-mono text-2xl">'+(s.price!=null?vnd(s.price):"—")+'</div><div class="font-mono text-sm '+chgCl(s.changePct)+'">'+(s.price!=null?signedPct(s.changePct):"")+'</div><div class="text-[11px] text-muted">'+(s.live?"Giá gần thời gian thực":s.asof?"Đóng cửa "+dmy(s.asof):"Chưa có giá")+'</div></div></div></div>';
 }
 function noStock(){return'<div class="'+card+' p-6 text-center text-sm text-muted">Chưa chọn mã nào. Về bước tầm soát để chọn một mã.</div>';}
 
@@ -728,9 +728,9 @@ function meter(s,v){
   if(v.fair==null)return"";
   const lo=Math.min(s.price,v.fair)*.7,hi=Math.max(s.price,v.fair)*1.3,pos=x=>((x-lo)/(hi-lo)*100).toFixed(1);
   const a=pos(v.fair*.92),b=pos(v.fair*1.08);
-  return'<div class="relative mt-4 h-14" role="img" aria-label="Giá '+vnd(s.price)+' so với giá hợp lý '+vnd(v.fair)+'"><div class="absolute left-0 right-0 top-6 h-2 rounded bg-line"></div><div class="absolute top-6 h-2 rounded bg-brass-soft" style="left:'+a+'%;width:'+(b-a)+'%"></div>'+
-   '<div class="absolute top-0 -translate-x-1/2 text-center" style="left:'+pos(s.price)+'%"><div class="whitespace-nowrap text-[11px] text-muted">Giá</div><div class="mx-auto mt-0.5 h-8 w-0.5 bg-ink"></div></div>'+
-   '<div class="absolute top-0 -translate-x-1/2 text-center" style="left:'+pos(v.fair)+'%"><div class="whitespace-nowrap text-[11px] text-brass">Hợp lý</div><div class="mx-auto mt-0.5 h-8 w-0.5 bg-brass"></div></div></div>';
+  return'<div class="relative mt-4 h-20" role="img" aria-label="Giá '+vnd(s.price)+' so với giá hợp lý '+vnd(v.fair)+'"><div class="absolute left-0 right-0 top-8 h-2 rounded bg-line"></div><div class="absolute top-8 h-2 rounded bg-brass-soft" style="left:'+a+'%;width:'+(b-a)+'%"></div>'+
+   '<div class="absolute top-0 -translate-x-1/2 text-center" style="left:'+pos(s.price)+'%"><div class="whitespace-nowrap text-[11px] font-medium text-ink">Giá</div><div class="mx-auto h-10 w-0.5 bg-ink"></div></div>'+
+   '<div class="absolute top-8 -translate-x-1/2 text-center" style="left:'+pos(v.fair)+'%"><div class="mx-auto h-10 w-0.5 bg-brass"></div><div class="whitespace-nowrap text-[11px] font-medium text-brass">Hợp lý</div></div></div>';
 }
 function reportBlock(s){
   const q=s.q;
