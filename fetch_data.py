@@ -20,6 +20,7 @@ CHẠY:     python fetch_data.py                      # đọc tickers.json
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import logging
 import sys
@@ -40,6 +41,7 @@ MIN_BARS = 60       # ít hơn mức này coi là nguồn lỗi
 UNIVERSE_FILE = Path("universe.json")
 UNIVERSE_BATCH_SIZE = 200
 UNIVERSE_RETRY_LIMIT = 50
+UNIVERSE_WORKERS = 3  # giới hạn request đồng thời; mỗi worker vẫn nghỉ giữa các API CafeF
 
 # Đồng bộ với nhóm phân loại tài chính trong index.html. Chỉ định kiểu báo cáo
 # chuyên biệt khi có mã được nhận diện rõ; mã khác giữ nhóm doanh nghiệp chung.
@@ -191,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="Lấy thêm một lô BCTC xoay vòng từ universe.json")
     ap.add_argument("--universe-file", type=Path, default=UNIVERSE_FILE)
     ap.add_argument("--batch-size", type=int, default=UNIVERSE_BATCH_SIZE)
+    ap.add_argument("--universe-workers", type=int, default=UNIVERSE_WORKERS,
+                    help="Số mã universe xử lý đồng thời (mặc định 3)")
     ap.add_argument("--merge-status", action="store_true",
                     help="Gộp status nhóm lõi vừa chạy trong cùng workflow")
     a = ap.parse_args(argv)
@@ -211,6 +215,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if a.batch_size < 1:
         log.error("--batch-size phải lớn hơn 0")
+        return 2
+    if a.universe_workers < 1:
+        log.error("--universe-workers phải lớn hơn 0")
         return 2
 
     (a.out / "prices").mkdir(parents=True, exist_ok=True)
@@ -266,21 +273,31 @@ def main(argv: list[str] | None = None) -> int:
         time.sleep(0.5)
 
     failed_universe: list[str] = []
-    for t in shard_tickers:
-        try:
-            data = cafef_fetch.fetch_ticker(t, report_sector(t), session)
-            (a.out / f"{t}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-            status["bctc"]["ok"] += 1
-            status["universe_batch"]["ok"] += 1
-            done += 1
-            log.info("universe %s: đã lưu %d kỳ", t, len(data["is"]["periods"]))
-        except cafef_fetch.FetchError as e:
-            failed_universe.append(t)
-            status["bctc"]["fail"] += 1
-            status["bctc"]["errors"].append(str(e)[:200])
-            status["universe_batch"]["fail"] += 1
-            status["universe_batch"]["errors"].append(str(e)[:200])
-            log.error("Bỏ qua universe %s, giữ dữ liệu cũ: %s", t, e)
+    if shard_tickers:
+        def fetch_universe_ticker(ticker: str) -> dict[str, Any]:
+            # Session riêng cho mỗi mã; không chia sẻ requests.Session giữa các thread.
+            with requests.Session() as worker_session:
+                return cafef_fetch.fetch_ticker(ticker, report_sector(ticker), worker_session)
+
+        with ThreadPoolExecutor(max_workers=a.universe_workers) as pool:
+            futures = {pool.submit(fetch_universe_ticker, t): t for t in shard_tickers}
+            for future in as_completed(futures):
+                t = futures[future]
+                try:
+                    data = future.result()
+                    (a.out / f"{t}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+                    status["bctc"]["ok"] += 1
+                    status["universe_batch"]["ok"] += 1
+                    done += 1
+                    log.info("universe %s: đã lưu %d kỳ", t, len(data["is"]["periods"]))
+                except Exception as e:
+                    failed_universe.append(t)
+                    err = str(e)[:200]
+                    status["bctc"]["fail"] += 1
+                    status["bctc"]["errors"].append(err)
+                    status["universe_batch"]["fail"] += 1
+                    status["universe_batch"]["errors"].append(err)
+                    log.error("Bỏ qua universe %s, giữ dữ liệu cũ: %s", t, e)
     if a.universe_batch:
         cursor_path.parent.mkdir(parents=True, exist_ok=True)
         cursor_path.write_text(json.dumps({"next_shard": (shard_index + 1) % shard_count,
