@@ -12,8 +12,8 @@ LƯU Ý:
 - Chương trình chỉ ghi đè file khi cả 3 báo cáo đều lấy được, nên lỗi mạng không làm hỏng dữ liệu cũ.
 
 CÀI ĐẶT:   pip install requests
-CẤU HÌNH:  tickers.json, ví dụ {"NVL": "bds", "VNM": "chung", "HPG": "chung"}
-           ngành hỗ trợ: "bds" (bất động sản), "chung" (sản xuất, bán lẻ, dịch vụ...). Ngân hàng chưa hỗ trợ.
+CẤU HÌNH:  tickers.json, ví dụ {"NVL": "bds", "VNM": "chung", "VCB": "nganhang", "SSI": "ck"}
+           nhóm hỗ trợ: "bds", "chung", "nganhang" (ngân hàng), "ck" (công ty chứng khoán).
 CHẠY:      python cafef_fetch.py                     # đọc tickers.json
            python cafef_fetch.py --tickers NVL VNM   # chỉ lấy vài mã (ngành "chung" nếu không có trong tickers.json)
 """

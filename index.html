@@ -575,7 +575,7 @@ function qualityRows(s){
   if(s.kind==="sec"&&X)return[
     r("ROE",pct(s.roe),s.roe==null?"neutral":tone3(s.roe,15,8)),r("ROA",pct(s.roa,1),tone3(s.roa,5,2.5)),
     r("Biên lợi nhuận / doanh thu",pct(s.netMargin),s.netMargin==null?"neutral":tone3(s.netMargin,35,20)),r("Đòn bẩy (tài sản / vốn chủ)",X.lev==null?"—":nv(X.lev,2)+"×",tone3(X.lev,2.5,3.5,false)),
-    r("Cho vay margin / vốn chủ",X.marginRatio==null?"—":nv(X.marginRatio,2)+"×",tone3(X.marginRatio,1,1.6,false)),r("Tăng doanh thu",s.revGrowth==null?"—":signedPct(s.revGrowth,0),tone3(s.revGrowth,15,0)),
+    r("Các khoản cho vay / vốn chủ",X.marginRatio==null?"—":nv(X.marginRatio,2)+"×",tone3(X.marginRatio,1,1.6,false)),r("Tăng doanh thu",s.revGrowth==null?"—":signedPct(s.revGrowth,0),tone3(s.revGrowth,15,0)),
     r("Tăng lợi nhuận",s.epsGrowth==null?"—":signedPct(s.epsGrowth,0),tone3(s.epsGrowth,15,0)),r("P/B",s.pb==null?"—":nv(s.pb,1)+"×",tone3(s.pb,1.8,2.8,false))];
   return[
     r("ROE",pct(s.roe),s.roe==null?"neutral":s.roe<0?"bad":tone3(s.roe,bank?18:15,bank?12:10)),
@@ -681,7 +681,7 @@ function ratioGroups(s){
   const sum2=(a,b)=>a==null&&b==null?null:(a||0)+(b||0);
   if(f.sector==="nganhang")return[
     {title:"Sinh lời và hiệu quả",rows:[row("ROE",p=>P(R(T("lnme",p)??T("lnst",p),A("vcsh",p))),pc1),row("ROA",p=>P(R(T("lnme",p)??T("lnst",p),A("ts",p))),pc1),
-      row("Thu nhập lãi thuần / tổng tài sản",p=>P(R(T("nii",p),A("ts",p))),pc1,"Xấp xỉ NIM, NIM thật dùng tài sản sinh lãi bình quân"),row("Chi phí / thu nhập (CIR)",p=>P(R(T("opex",p),T("dt",p))),pc1)]},
+      row("Thu nhập lãi thuần / tổng tài sản (proxy)",p=>P(R(T("nii",p),A("ts",p))),pc1,"Không phải NIM: mẫu số NIM cần tài sản sinh lãi bình quân, không phải tổng tài sản cuối kỳ"),row("Chi phí / thu nhập (CIR)",p=>P(R(T("opex",p),T("dt",p))),pc1)]},
     {title:"Tăng trưởng và cấu trúc",rows:[row("Tăng trưởng tín dụng so với 4 quý trước",p=>{const q=finIdx(f,p,4);return q?P(R(A("loan",p),A("loan",q))-1):null;},pc1),
       row("Tăng trưởng tiền gửi KH so với 4 quý trước",p=>{const q=finIdx(f,p,4);return q?P(R(A("dep",p),A("dep",q))-1):null;},pc1),row("Cho vay / tiền gửi KH",p=>P(R(A("loan",p),A("dep",p))),pc1,"Dùng số thuần trên bảng, khác cách NHNN tính"),
       row("Chi phí dự phòng / dư nợ",p=>P(R(T("prov",p),A("loan",p))),x=>x==null?"—":nv(x,2)+"%"),row("Đòn bẩy (tài sản / vốn chủ)",p=>R(A("ts",p),A("vcsh",p)),x2)]},
@@ -690,7 +690,7 @@ function ratioGroups(s){
     {title:"Sinh lời",rows:[row("ROE",p=>P(R(T("lnme",p)??T("lnst",p),A("vcsh",p))),pc1),row("ROA",p=>P(R(T("lnme",p)??T("lnst",p),A("ts",p))),pc1),
       row("Lợi nhuận / doanh thu hoạt động",p=>P(R(T("lnme",p)??T("lnst",p),T("dt",p))),pc1),row("Chi phí / doanh thu hoạt động",p=>{const o=T("opex",p);return o==null?null:P(R(o+(T("qlck",p)||0),T("dt",p)));},pc1)]},
     {title:"Đòn bẩy và rủi ro",rows:[row("Đòn bẩy (tài sản / vốn chủ)",p=>R(A("ts",p),A("vcsh",p)),x2),row("Nợ phải trả / vốn chủ",p=>R(A("nopt",p),A("vcsh",p)),x2),
-      row("Cho vay margin / vốn chủ",p=>R(A("loan",p),A("vcsh",p)),x2),row("Tài sản FVTPL / vốn chủ",p=>R(A("fvtpl",p),A("vcsh",p)),x2)]},
+      row("Các khoản cho vay / vốn chủ",p=>R(A("loan",p),A("vcsh",p)),x2,"Dòng các khoản cho vay trên BCTC; không khẳng định toàn bộ là dư nợ margin"),row("Tài sản FVTPL / vốn chủ",p=>R(A("fvtpl",p),A("vcsh",p)),x2)]},
     {title:"Quy mô",rows:[row("Tổng tài sản (tỷ)",p=>A("ts",p),ty),row("Vốn chủ sở hữu (tỷ)",p=>A("vcsh",p),ty),row("Doanh thu hoạt động 4 quý (tỷ)",p=>T("dt",p),ty),row("Lợi nhuận sau thuế 4 quý (tỷ)",p=>T("lnme",p)??T("lnst",p),ty)]}];
   const dsum=(p,k)=>{const x=T(k,p);return x};
   const ln=p=>T("lnme",p)??T("lnst",p),ebit=p=>{const a=T("lntt",p),b=T("cplai",p);return a==null||b==null?null:a+b;};
@@ -828,10 +828,35 @@ function meter(s,v){
    '<div class="absolute top-0 -translate-x-1/2 text-center" style="left:'+pos(s.price)+'%"><div class="whitespace-nowrap text-[11px] font-medium text-ink">Giá</div><div class="mx-auto h-10 w-0.5 bg-ink"></div></div>'+
    '<div class="absolute top-8 -translate-x-1/2 text-center" style="left:'+pos(v.fair)+'%"><div class="mx-auto h-10 w-0.5 bg-brass"></div><div class="whitespace-nowrap text-[11px] font-medium text-brass">Hợp lý</div></div></div>';
 }
+function sectorReportBlock(s){
+  const bank=s.kind==="bank",f=s.fin,p=f&&f.last,p4=f&&p?finIdx(f,p,4):null,X=s.ext||{};
+  const names=bank?["ROE","ROA","Chi phí / thu nhập (CIR)","Tăng trưởng tín dụng","Cho vay / tiền gửi KH","Chi phí dự phòng / dư nợ","Tăng lợi nhuận"]:
+    ["ROE","ROA","Biên lợi nhuận / doanh thu","Đòn bẩy (tài sản / vốn chủ)","Các khoản cho vay / vốn chủ","Tăng doanh thu","Tăng lợi nhuận","P/B"];
+  const metrics=qualityRows(s).filter(r=>names.includes(r.label));
+  if(!bank&&X.propRatio!=null)metrics.push({label:"Tài sản FVTPL / vốn chủ",value:nv(X.propRatio,2)+"×",tone:"neutral",tag:"Tham khảo"});
+  const tiles=metrics.map(r=>'<div class="rounded-md bg-paper p-3"><div class="text-xs text-muted">'+esc(r.label)+'</div><div class="mt-1 flex items-center justify-between gap-2"><span class="font-mono text-sm">'+esc(r.value)+'</span><span class="rounded px-1.5 py-0.5 text-[10px] font-semibold '+(r.tone==="good"?"bg-up-soft text-up":r.tone==="bad"?"bg-down-soft text-down":r.tone==="ok"?"bg-brass-soft text-brass":"bg-line text-muted")+'">'+esc(r.tag)+'</span></div></div>').join("");
+  const netKey=ttm(f,"lnme",p)!=null?"lnme":"lnst",net=ttm(f,netKey,p),netPrev=p4?ttm(f,netKey,p4):null;
+  const netLabel=netKey==="lnme"?"LNST thuộc chủ sở hữu":"LNST hợp nhất";
+  const growth=(a,b)=>a!=null&&b>0?signedPct((a/b-1)*100,1)+" so với 4 quý trước":"chưa đủ 8 quý hoặc kỳ gốc không dương để so tăng trưởng";
+  const summary=bank?netLabel+" 4 quý gần nhất: "+ty(net)+" ("+growth(net,netPrev)+").":
+    "Doanh thu hoạt động 4 quý gần nhất: "+ty(ttm(f,"dt",p))+" ("+growth(ttm(f,"dt",p),p4?ttm(f,"dt",p4):null)+"). "+netLabel+": "+ty(net)+" ("+growth(net,netPrev)+").";
+  const notes=[];
+  if(bank&&X.loanGrowth!=null&&X.depGrowth!=null){
+    if(X.loanGrowth-X.depGrowth>5)notes.push("Dư nợ tăng nhanh hơn tiền gửi khoảng "+nv(X.loanGrowth-X.depGrowth,1)+" điểm %, cần theo dõi nguồn vốn huy động.");
+    else notes.push("Tăng trưởng dư nợ và tiền gửi lần lượt là "+signedPct(X.loanGrowth,1)+" và "+signedPct(X.depGrowth,1)+".");
+  }
+  if(!bank&&X.marginRatio!=null)notes.push("Các khoản cho vay trên bảng cân đối bằng "+nv(X.marginRatio,2)+" lần vốn chủ; không thể khẳng định toàn bộ là dư nợ margin từ mã chỉ tiêu này.");
+  if(!bank&&X.propRatio!=null)notes.push("Tài sản FVTPL bằng "+nv(X.propRatio,2)+" lần vốn chủ; tỷ lệ này không tự nó kết luận lãi/lỗ hay mức độ rủi ro.");
+  const date=f&&f.at?" · cập nhật "+dmy(f.at):"";
+  return'<div class="'+card+' p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold">Soi báo cáo · '+(bank?"Ngân hàng":"Công ty chứng khoán")+'</h2><span class="text-xs text-muted">Kỳ '+esc(p?pL(p):"—")+date+'</span></div>'+
+    '<p class="mt-2 text-sm">'+esc(summary)+'</p><div class="mt-3 grid gap-2 sm:grid-cols-2">'+(tiles||'<p class="text-sm text-muted">Chưa đủ dữ liệu để tính chỉ tiêu ngành.</p>')+'</div>'+
+    (notes.length?'<div class="mt-3 space-y-1">'+notes.map(x=>'<p class="text-xs text-muted">'+esc(x)+'</p>').join("")+'</div>':'')+
+    '<p class="mt-3 text-[11px] text-muted">Nguồn: CafeF. Nhãn Tốt/Ổn/Yếu là tín hiệu sàng lọc nội bộ, không phải xếp hạng chính thức. BCTC hiện có không đủ để tính nợ xấu, CAR theo chuẩn NHNN hay NIM chuẩn; thu nhập lãi thuần/tổng tài sản và dự phòng/dư nợ chỉ là chỉ số tham khảo.</p></div>';
+}
 function reportBlock(s){
   const q=s.q;
-  if(s.hasFin&&s.kind&&s.kind!=="normal")return'<div class="'+card+' p-4"><h2 class="font-semibold">Soi báo cáo</h2><p class="mt-1 text-sm">'+(s.kind==="bank"?"Ngân hàng":"Công ty chứng khoán")+' không chấm điểm bằng bộ kiểm tra của doanh nghiệp thường (dòng tiền, hàng tồn kho, nợ vay...) vì cấu trúc báo cáo khác. Xem các chỉ số riêng của ngành ở mục Chỉ số tài chính bên dưới.</p><p class="mt-2 text-xs text-muted">CafeF không có nợ xấu, CAR hay NIM chuẩn nên app chưa đo những chỉ số đó.</p></div>';
   if(!s.hasFin)return'<div class="'+card+' p-4"><h2 class="font-semibold">Soi báo cáo</h2><p class="mt-1 text-sm text-muted">Chưa có báo cáo tài chính cho '+s.t+'. Thêm mã ở phần Dữ liệu để chạy các phép kiểm tra.</p></div>';
+  if(s.kind&&s.kind!=="normal")return sectorReportBlock(s);
   if(!q)return'<div class="'+card+' p-4"><h2 class="font-semibold">Soi báo cáo</h2><p class="mt-1 text-sm text-muted">Không đủ số liệu để chấm.</p></div>';
   const a=q.a,warn=a.c.filter(x=>x.lv==="cao"||x.lv==="tb");
   const bars=PIL.map(([k,l])=>{const p=q.P[k];return'<div><div class="flex justify-between text-xs"><span>'+l+'</span><span class="font-mono">'+(p==null?"—":nv(p,0))+'</span></div><div class="mt-1 h-1.5 rounded bg-line"><div class="h-1.5 rounded bg-brass" style="width:'+(p==null?0:p)+'%"></div></div></div>';}).join("");

@@ -19,8 +19,8 @@ Cloudflare → Workers → Create → dán nội dung `worker.js` → Deploy. N�
 Dán địa chỉ Worker vào app: Dữ liệu → Worker trung gian. Có Worker thì: giá nhảy theo phiên (9h–15h), thêm mã mới ngay trong app.
 
 ## Giới hạn cần biết
-- Các địa chỉ API của CafeF và các nguồn giá đều không chính thức, viết theo trí nhớ và CHƯA được thử với dữ liệu thật; có thể bị đổi hoặc chặn IP của GitHub/Cloudflare. Nếu Action lỗi, gửi lại nội dung `data/status.json`.
+- Báo cáo tài chính dùng API công khai nhưng không chính thức của CafeF. Bộ dữ liệu hiện có đã được đối chiếu với API CafeF cho 57 mã vào ngày 24/11/2026; kết quả khớp về kỳ, mã chỉ tiêu và giá trị. Đây là kiểm tra nhất quán với CafeF, chưa phải đối chiếu độc lập với báo cáo gốc doanh nghiệp công bố. API và nguồn giá có thể thay đổi hoặc chặn truy cập; nếu Action lỗi, xem `data/status.json`.
 - Số cổ phiếu ước tính = vốn góp / 10.000 nên EPS, P/E, vốn hóa có thể lệch với một số công ty.
 - Cổ tức ước tính từ dòng tiền chi trả cổ tức, không phải cổ tức công bố.
-- Ngân hàng, chứng khoán chưa chấm điểm báo cáo được.
+- Ngân hàng và công ty chứng khoán có phần phân tích/chỉ số riêng, không áp dụng điểm của doanh nghiệp thông thường. Một số chỉ tiêu như nợ xấu, CAR theo chuẩn NHNN và NIM chuẩn không thể tính từ các trường dữ liệu hiện có.
 - Công cụ tham khảo, không phải khuyến nghị đầu tư.
