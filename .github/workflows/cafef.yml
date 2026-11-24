@@ -1,0 +1,45 @@
+name: Cập nhật số liệu (báo cáo CafeF và giá)
+
+on:
+  schedule:
+    - cron: "40 9 * * 1-5"      # 16:40 giờ Việt Nam, sau khi đóng cửa, ngày thường
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Chỉ lấy các mã này (cách nhau bằng dấu cách). Để trống để lấy toàn bộ tickers.json"
+        required: false
+        default: ""
+      only:
+        description: "bctc hoặc prices. Để trống để lấy cả hai"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Lấy số liệu
+        env:
+          IN_TICKERS: ${{ github.event.inputs.tickers }}
+          IN_ONLY: ${{ github.event.inputs.only }}
+        run: |
+          ARGS=""
+          if [ -n "$IN_TICKERS" ]; then ARGS="$ARGS --tickers $IN_TICKERS"; fi
+          if [ "$IN_ONLY" = "bctc" ] || [ "$IN_ONLY" = "prices" ]; then ARGS="$ARGS --only $IN_ONLY"; fi
+          python fetch_data.py $ARGS
+      - name: Lưu vào repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -m "Cập nhật số liệu $(date -u +%F)"
+          git push
