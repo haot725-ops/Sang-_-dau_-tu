@@ -263,7 +263,8 @@ const FBANK=new Set("VCB BID CTG TCB MBB ACB VPB HDB STB SHB TPB LPB MSB OCB EIB
 function finSecMap(){try{const m=JSON.parse(localStorage.getItem("sang.sec")||"{}");return m&&typeof m==="object"?m:{};}catch(e){return{};}}
 const finSecOv=t=>{const v=finSecMap()[t];return["chung","bds","nganhang"].includes(v)?v:null;};
 const finSecOf=t=>finSecOv(t)||(FBDS.has(t)?"bds":FBANK.has(t)?"nganhang":"chung");
-function finWorker(){try{const w=(localStorage.getItem("sang.worker")||"").trim();return/^https:\/\/[^\s]+$/i.test(w)?w:"";}catch(e){return"";}}
+const DEFAULT_FIN_WORKER="https://sang-market-data.sang-haot725.workers.dev";
+function finWorker(){try{const w=(localStorage.getItem("sang.worker")||"").trim();if(/^https:\/\/[^\s]+$/i.test(w))return w.replace(/\/+$/,"");}catch(e){}return DEFAULT_FIN_WORKER;}
 /* chuẩn hoá phản hồi thô của CafeF thành dạng giống data/MÃ.json */
 function finBuild(sym,raw){
   const o={ticker:sym,sector:finSecOf(sym),unit:"VND",fetched_at:new Date().toISOString(),source:"cafef.vn"};

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sang-v3';
+const CACHE_NAME = 'sang-v4';
 const ASSETS = [
   './',
   './index.html',
