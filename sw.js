@@ -1,11 +1,11 @@
-const CACHE_NAME = 'sang-v2';
+const CACHE_NAME = 'sang-v3';
 const ASSETS = [
   './',
   './index.html',
   './universe.json',
   './manifest.json',
   'https://cdn.tailwindcss.com',
-  './icons/icon-192.png'
+  './icon-192.png'
 ];
 
 self.addEventListener('install', (event) => {

@@ -7,8 +7,8 @@
 <meta name="description" content="Tầm soát, định giá và đọc kỹ thuật cổ phiếu Việt Nam bằng số liệu thật"/>
 <meta name="theme-color" content="#f3efe6"/>
 <link rel="manifest" href="manifest.json"/>
-<link rel="icon" href="icons/icon-32.png"/>
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+<link rel="icon" href="icon-32.png"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="Sàng"/>
@@ -1792,6 +1792,31 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("toggle",e=>{const t=e.target;if(t.id==="more")D.more=t.open;else if(t.open&&t.querySelector){const r=t.querySelector(".rscroll");if(r)r.scrollLeft=r.scrollWidth;}},true);
 let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(D.step===3)viewTech();},200);});
+
+
+/* =================== Cài ra màn hình (tự biến mất sau khi cài) =================== */
+(function installBtn(){
+  const standalone=()=>matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: fullscreen)").matches||navigator.standalone===true;
+  if(standalone())return;
+  const ua=navigator.userAgent,ios=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  let ev=null,bar=null;
+  const kill=()=>{if(bar){bar.remove();bar=null;}ev=null;};
+  const show=()=>{
+    if(bar||standalone())return;
+    bar=document.createElement("div");bar.id="pwa-install";bar.setAttribute("role","region");bar.setAttribute("aria-label","Cài ứng dụng");
+    bar.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:60;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:#1c1916;color:#f3efe6;display:flex;align-items:center;gap:12px;box-shadow:0 -2px 12px rgba(0,0,0,.25);font-size:14px";
+    const msg=ios&&!ev?"Bấm nút Chia sẻ rồi chọn “Thêm vào MH chính” để cài Sàng.":"Cài Sàng ra màn hình để mở nhanh như một ứng dụng.";
+    bar.innerHTML='<span style="flex:1;min-width:0;line-height:1.35"></span>'+(ev?'<button type="button" id="pwa-go" style="flex:none;border-radius:8px;background:#f3efe6;color:#1c1916;padding:8px 14px;font-weight:600">Cài đặt</button>':'')+'<button type="button" id="pwa-x" aria-label="Đóng" style="flex:none;padding:6px 8px;color:#f3efe6;opacity:.7;font-size:18px;line-height:1">✕</button>';
+    bar.firstChild.textContent=msg;document.body.appendChild(bar);
+    const go=bar.querySelector("#pwa-go");
+    if(go)go.onclick=async()=>{const e=ev;if(!e)return;go.disabled=true;try{e.prompt();const r=await e.userChoice;if(r&&r.outcome==="accepted")kill();else{go.disabled=false;}}catch(_){go.disabled=false;}};
+    bar.querySelector("#pwa-x").onclick=kill;
+  };
+  addEventListener("beforeinstallprompt",e=>{e.preventDefault();ev=e;if(bar){bar.remove();bar=null;}show();});
+  addEventListener("appinstalled",kill);
+  try{matchMedia("(display-mode: standalone)").addEventListener("change",x=>{if(x.matches)kill();});}catch(_){}
+  if(ios)setTimeout(()=>{if(!ev&&!standalone())show();},2500);
+})();
 
 /* =================== Khởi động =================== */
 (async function boot(){
