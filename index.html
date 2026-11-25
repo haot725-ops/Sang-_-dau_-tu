@@ -21,6 +21,7 @@ tailwind.config={theme:{extend:{colors:{paper:"#f3efe6",card:"#fbf8f3",ink:"#1c1
 fontFamily:{sans:['"Be Vietnam Pro"',"ui-sans-serif","system-ui","sans-serif"],mono:['"IBM Plex Mono"',"ui-monospace","monospace"]}}}};
 </script>
 <style>
+details.acc>summary{list-style:none}details.acc>summary::-webkit-details-marker{display:none}details.acc[open]>summary .chev{transform:rotate(90deg)}.chev{transition:transform .15s}
 html{color-scheme:light;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:#f3efe6;color:#1c1916;font-family:"Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;line-height:1.5}
 h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}
@@ -1130,10 +1131,11 @@ function eqCard(s){
   const e=s.eq;if(!e)return"";
   const bar=e.parts?'<div class="mt-3 flex h-3 w-full overflow-hidden rounded-full bg-line">'+e.parts.filter(x=>x.sh>0).map(x=>'<div class="'+x.cls+'" style="width:'+Math.min(100,x.sh*100).toFixed(1)+'%" title="'+esc(x.k)+'"></div>').join("")+'</div><div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">'+e.parts.map(x=>'<span class="inline-flex items-center gap-1"><i class="inline-block h-2 w-2 rounded-full '+x.cls+'"></i>'+esc(x.k)+' '+nv(x.sh*100,0)+'%</span>').join("")+'</div>':"";
   const sc=e.score==null?"":'<div class="text-right"><div class="text-2xl font-semibold leading-none">'+e.score+'<span class="text-sm font-normal text-muted">/100</span></div><div class="mt-1 text-[11px] text-muted">điểm chất lượng</div></div>';
-  const secs=e.sections.map(g=>'<div class="mt-4"><div class="text-xs font-semibold uppercase tracking-wide text-muted">'+esc(g.title)+'</div><div class="mt-1 divide-y divide-line">'+g.rows.map(x=>'<div class="flex flex-col gap-1 py-2.5 sm:flex-row sm:gap-3"><span class="h-fit w-fit shrink-0 rounded px-1.5 py-0.5 text-center sm:mt-0.5 sm:w-24 text-[11px] font-semibold '+TONEC[x.tone]+'">'+esc(x.k)+(x.lech?' · Lệch':'')+'</span><div class="min-w-0 text-sm"><p>'+esc(x.text)+'</p>'+(x.where?'<p class="mt-0.5 text-xs text-muted">Kiểm tra: '+esc(x.where)+'</p>':'')+'</div></div>').join("")+'</div></div>').join("");
+  const secs=e.sections.map(g=>{const nb=g.rows.filter(r=>r.tone==="bad").length,no=g.rows.filter(r=>r.tone==="ok").length,worst=nb?"bad":no?"ok":"good",k="eq-"+g.id;
+    return'<details class="acc mt-2 border-t border-line pt-1" data-k="'+k+'"'+(accOpen(k,nb>0)?' open':'')+'><summary class="flex cursor-pointer items-center justify-between gap-2 py-2"><span class="text-xs font-semibold uppercase tracking-wide text-muted">'+esc(g.title)+'</span><span class="flex items-center gap-2 text-[11px] text-muted">'+(nb?nb+' xấu':'')+(no?(nb?' · ':'')+no+' lưu ý':'')+(!nb&&!no?'ổn':'')+'<i class="h-2 w-2 rounded-full '+DOT[worst]+'"></i>'+CHEV+'</span></summary><div class="divide-y divide-line">'+g.rows.map(x=>'<div class="flex flex-col gap-1 py-2.5 sm:flex-row sm:gap-3"><span class="h-fit w-fit shrink-0 rounded px-1.5 py-0.5 text-center text-[11px] font-semibold sm:mt-0.5 sm:w-24 '+TONEC[x.tone]+'">'+esc(x.k)+(x.lech?' · Lệch':'')+'</span><div class="min-w-0 text-sm"><p>'+esc(x.text)+'</p>'+(x.where?'<p class="mt-0.5 text-xs text-muted">Kiểm tra: '+esc(x.where)+'</p>':'')+'</div></div>').join("")+'</div></details>';}).join("");
   const T=(l,fn)=>'<tr><td class="whitespace-nowrap py-1.5 pr-3 text-muted">'+l+'</td>'+e.ser.map(x=>'<td class="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">'+fn(x)+'</td>').join("")+'</tr>';
   const ty0=v=>v==null?"—":nv(v/1e9,0);
-  const tbl=e.ser.length?'<div class="mt-4"><div class="text-xs font-semibold uppercase tracking-wide text-muted">Diễn biến theo quý (tỷ đồng)</div><div class="mt-1 overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-muted"><th class="py-1 pr-3 text-left font-medium"></th>'+e.ser.map(x=>'<th class="px-2 py-1 text-right font-medium">'+esc(pL(x.p))+'</th>').join("")+'</tr></thead><tbody class="divide-y divide-line">'+T("Doanh thu",x=>ty0(x.dt))+T("Lãi cốt lõi",x=>ty0(x.core))+T("Lãi cổ đông mẹ",x=>ty0(x.lnme))+T("Dòng tiền KD",x=>ty0(x.cfo))+T("Biên gộp",x=>x.gm==null?"—":nv(x.gm*100,1)+"%")+'</tbody></table></div></div>':"";
+  const tbl=e.ser.length?'<details class="acc mt-2 border-t border-line pt-1" data-k="eq-ser"'+(accOpen("eq-ser",false)?' open':'')+'><summary class="flex cursor-pointer items-center justify-between gap-2 py-2"><span class="text-xs font-semibold uppercase tracking-wide text-muted">Diễn biến theo quý (tỷ đồng)</span>'+CHEV+'</summary><div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-muted"><th class="py-1 pr-3 text-left font-medium"></th>'+e.ser.map(x=>'<th class="px-2 py-1 text-right font-medium">'+esc(pL(x.p))+'</th>').join("")+'</tr></thead><tbody class="divide-y divide-line">'+T("Doanh thu",x=>ty0(x.dt))+T("Lãi cốt lõi",x=>ty0(x.core))+T("Lãi cổ đông mẹ",x=>ty0(x.lnme))+T("Dòng tiền KD",x=>ty0(x.cfo))+T("Biên gộp",x=>x.gm==null?"—":nv(x.gm*100,1)+"%")+'</tbody></table></div></details>':"";
   return'<div class="'+card+' p-4"><div class="text-xs font-medium uppercase tracking-wide text-muted">Bóc tách chất lượng lợi nhuận</div><div class="mt-1 flex items-start justify-between gap-3"><div class="min-w-0"><h2 class="text-lg font-semibold">'+esc(e.label)+'</h2><p class="mt-1 text-sm">'+esc(e.why)+'</p></div>'+sc+'</div>'+bar+secs+tbl+'<p class="mt-3 text-[11px] text-muted">Suy luận từ ba bảng báo cáo của CafeF, không có thuyết minh. Mỗi dòng có mục "Kiểm tra" chỉ chỗ cần đối chiếu.</p></div>';
 }
 function conclusionCard(s,v){
@@ -1198,22 +1200,365 @@ function reportBlock(s){
    '<h3 class="mt-4 text-sm font-semibold">Cần chú ý ('+warn.length+')</h3>'+(warn.length?warn.map(x=>'<div class="mt-2 flex gap-2"><span class="mt-0.5 h-fit shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold '+(x.lv==="cao"?"bg-down-soft text-down":"bg-brass-soft text-brass")+'">'+(x.lv==="cao"?"Cao":"Lưu ý")+'</span><div><div class="text-sm font-medium">'+esc(x.t)+'</div><div class="text-xs text-muted">'+esc(x.d)+'</div></div></div>').join(""):'<p class="mt-1 text-xs text-muted">Không có cảnh báo trong các điểm đã kiểm tra.</p>')+
    '<p class="mt-3 text-[11px] text-muted">Piotroski '+(a.s.known?a.s.F+"/"+a.s.known:"chưa đủ dữ liệu")+(a.s.z!=null?" · Altman Z'' "+nv(a.s.z,2)+" ("+a.s.zone+")":"")+'. Đây là mô hình nước ngoài, chưa kiểm chứng riêng cho Việt Nam, đặc biệt với bất động sản.</p></div>';
 }
+/* ---- Phiếu khám: tóm tắt ở đầu, chạm ô nào mở đúng phần chi tiết của ô đó ---- */
+const VT={key:"",tab:null,open:{},shown:null};
+const DOT={good:"bg-up",ok:"bg-brass",bad:"bg-down",neutral:"bg-muted"};
+const TXT={good:"text-up",ok:"text-brass",bad:"text-down",neutral:"text-ink"};
+const accOpen=(k,def)=>VT.open[k]===undefined?def:VT.open[k];
+const CHEV='<svg class="chev h-4 w-4 shrink-0 text-muted" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4l6 6-6 6"/></svg>';
+function acc(k,title,pre,body,def,tone){
+  return'<details class="acc '+card+'" data-k="'+k+'"'+(accOpen(k,def)?' open':'')+'><summary class="flex cursor-pointer items-center justify-between gap-3 px-4 py-3"><span class="min-w-0"><span class="text-sm font-semibold">'+esc(title)+'</span>'+(pre?'<span class="mt-0.5 block text-xs text-muted">'+esc(pre)+'</span>':'')+'</span><span class="flex shrink-0 items-center gap-2">'+(tone?'<i class="h-2 w-2 rounded-full '+DOT[tone]+'"></i>':'')+CHEV+'</span></summary><div class="border-t border-line px-4 pb-4 pt-3">'+body+'</div></details>';
+}
+const firstSent=(t,n=120)=>{t=String(t||"");let x=t.indexOf(". ")>0?t.slice(0,t.indexOf(". ")+1):t;if(x.length>n){x=x.slice(0,n);x=x.slice(0,Math.max(20,x.lastIndexOf(" ")))+"…";}return x;};
+function itemRows(items){return'<div class="divide-y divide-line">'+items.map(x=>'<div class="flex flex-col gap-1 py-2.5 sm:flex-row sm:gap-3"><span class="h-fit w-fit shrink-0 rounded px-1.5 py-0.5 text-center text-[11px] font-semibold sm:mt-0.5 sm:w-24 '+TONEC[x.tone]+'">'+esc(x.k)+'</span><p class="min-w-0 text-sm">'+esc(x.text)+'</p></div>').join("")+'</div>';}
+/* =================== Bản ghi phân tích (đọc như một chuyên viên phân tích) =================== */
+const P1=x=>x==null||!isFinite(x)?"—":nv(x*100,1)+"%",PP=x=>x==null||!isFinite(x)?"—":nv(x*100,0)+"%",SP=x=>x==null||!isFinite(x)?"—":signedPct(x*100,0);
+function ATQ(f,pp){
+  if(!pp)return null;
+  const T=k=>ttm(f,k,pp),B=k=>fv(f,k,pp),ab=x=>x==null?null:Math.abs(x);
+  const ts=B("ts");if(ts==null)return null;
+  const ln=T("lnme")!=null?T("lnme"):T("lnst"),lnhd=T("lnhd"),dttc=T("dttc"),cptc=T("cptc"),lk=T("lkpl")||0,cb=T("cpbh"),ql=T("cpql"),dep=ab(T("khauhao"));
+  const fin=(dttc||0)-(cptc||0),core=lnhd!=null?lnhd-fin-lk:null,vc=B("vcsh");
+  return{p:pp,dt:T("dt"),gv:ab(T("gv")),gop:T("gop"),ln,lnst:T("lnst"),lntt:T("lntt"),core,dep,lai:ab(T("cplai")),cfo:T("cfo"),capex:ab(T("capex")),div:ab(T("divpaid")),
+    opex:(cb!=null||ql!=null)?Math.abs(cb||0)+Math.abs(ql||0):null,ebitda:core!=null?core+(dep||0):null,
+    ts,own:vc!=null?vc-(B("minor")||0):null,vay:B("vay"),vaynh:B("vaynh"),tien:B("tienall"),ton:B("ton"),pt:B("pthkh")!=null?B("pthkh"):B("phaithu"),ptnb:B("ptnb"),
+    trat:(B("tratnh")||0)+(B("tratdh")||0)+(B("dtchuanh")||0)+(B("dtchuadh")||0),shares:B("vongop")};
+}
+function pvEarn(e0,g,k,gt=.04,N=10){let v=0,e=e0;for(let t=1;t<=N;t++){e*=1+g+(gt-g)*(t-1)/(N-1);v+=e/Math.pow(1+k,t);}return v+e*(1+gt)/(k-gt)/Math.pow(1+k,N);}
+function impliedGrowth(eps0,price,k){
+  if(!(eps0>0&&price>0))return null;
+  let lo=-.15,hi=.45;if(pvEarn(eps0,lo,k)>=price)return{g:lo,edge:"low"};if(pvEarn(eps0,hi,k)<=price)return{g:hi,edge:"high"};
+  for(let i=0;i<50;i++){const m=(lo+hi)/2;if(pvEarn(eps0,m,k)<price)lo=m;else hi=m;}return{g:(lo+hi)/2,edge:null};
+}
+function peerBlock(s){
+  const pool=STOCKS.filter(x=>x.t!==s.t&&x.hasFin&&x.kind===s.kind);
+  let same=pool.filter(x=>x.sector===s.sector),scope="ngành "+s.sector;
+  if(same.length<3){same=pool;scope="cả danh sách đang theo dõi";}
+  if(same.length<3)return{n:same.length,rows:[],scope,text:"Mới có "+same.length+" mã cùng loại có báo cáo, chưa đủ để so sánh. Thêm mã cùng ngành ở phần Dữ liệu."};
+  const f1=x=>nv(x,1)+"%",fs=x=>signedPct(x,0),fx=x=>nv(x,1)+"×";
+  const defs=s.kind==="normal"?[["ROE",x=>x.roe,1,f1],["Biên lợi nhuận ròng",x=>x.netMargin,1,f1],["Tăng doanh thu",x=>x.revGrowth,1,fs],["Tăng lợi nhuận",x=>x.epsGrowth,1,fs],["P/E",x=>x.pe,-1,fx],["P/B",x=>x.pb,-1,fx],["Nợ ròng/vốn chủ",x=>x.debtEquity,-1,x=>nv(x,2)]]:
+    s.kind==="bank"?[["ROE",x=>x.roe,1,f1],["ROA",x=>x.roa,1,f1],["Chi phí/thu nhập",x=>x.ext&&x.ext.cir,-1,f1],["Tăng tín dụng",x=>x.ext&&x.ext.loanGrowth,1,fs],["P/E",x=>x.pe,-1,fx],["P/B",x=>x.pb,-1,fx]]:
+    [["ROE",x=>x.roe,1,f1],["ROA",x=>x.roa,1,f1],["Đòn bẩy",x=>x.ext&&x.ext.lev,-1,fx],["P/E",x=>x.pe,-1,fx],["P/B",x=>x.pb,-1,fx]];
+  const rows=[];
+  defs.forEach(([k,g,dir,fm])=>{
+    const sv=g(s);if(sv==null||!isFinite(sv))return;const vals=same.map(g).filter(x=>x!=null&&isFinite(x));if(vals.length<3)return;
+    let better=0;vals.forEach(x=>{const d=dir*(sv-x);better+=d>0?1:d===0?.5:0;});
+    const pct=better/vals.length*100,sorted=[...vals].sort((a,b)=>a-b),med=sorted[Math.floor(sorted.length/2)];
+    rows.push({k,val:fm(sv),med:fm(med),pct,n:vals.length,tone:pct>=70?"good":pct<=30?"bad":"ok"});
+  });
+  const st=rows.filter(r=>r.pct>=70).map(r=>r.k),wk=rows.filter(r=>r.pct<=30).map(r=>r.k);
+  const text=(st.length?"Mạnh hơn phần lớn nhóm về "+st.join(", ")+". ":"")+(wk.length?"Yếu hơn phần lớn nhóm về "+wk.join(", ")+". ":"")+(!st.length&&!wk.length?"Nằm quanh mức trung bình của nhóm. ":"")+"So với "+same.length+" mã thuộc "+scope+".";
+  return{n:same.length,rows,scope,text,strong:st,weak:wk};
+}
+function analystNote(s,v){
+  const f=s.fin;if(!f)return null;
+  const kind=s.kind,p=f.last,p1=finIdx(f,p,1),p4=finIdx(f,p,4),p8=finIdx(f,p,8),pq4=finIdx(f,p,3);
+  const a=ATQ(f,p),o=ATQ(f,p4),a8=ATQ(f,p8);if(!a)return null;
+  const dis=!!(s.brk&&s.brk.distorted),EV=[],E=(tone,text,w)=>EV.push({tone,text,w:w||1});
+  const N={kind,dis,news:[],dupont:null,wc:[],peers:null,rev:null,lens:null,watch:{confirm:[],invalid:[]},drivers:[],risks:[],thesis:null};
+  const q=(k,pp)=>pp?fv(f,k,pp):null,gr=(x,y)=>x!=null&&y>0?x/y-1:null;
+  const lag=(tone)=>dis?"neutral":tone;
+  /* ---- 1. DuPont ---- */
+  const dp=x=>{if(!x||!(x.own>0&&x.ts>0&&x.ln!=null))return null;return kind==="normal"?(x.dt>0?{m:x.ln/x.dt,t:x.dt/x.ts,l:x.ts/x.own,roe:x.ln/x.own}:null):{m:x.ln/x.ts,l:x.ts/x.own,roe:x.ln/x.own};};
+  const d1=dp(a),d0=dp(o);
+  if(d1){
+    const rows=[{k:"ROE",now:P1(d1.roe),prev:d0?P1(d0.roe):"—"}];
+    if(kind==="normal"){rows.push({k:"Biên lợi nhuận ròng",now:P1(d1.m),prev:d0?P1(d0.m):"—"},{k:"Vòng quay tài sản",now:nv(d1.t,2)+" lần",prev:d0?nv(d0.t,2)+" lần":"—"});}
+    else rows.push({k:"ROA",now:P1(d1.m),prev:d0?P1(d0.m):"—"});
+    rows.push({k:"Đòn bẩy (tài sản/vốn chủ)",now:nv(d1.l,2)+" lần",prev:d0?nv(d0.l,2)+" lần":"—"});
+    let text="ROE "+P1(d1.roe)+(d0?", cùng kỳ năm trước "+P1(d0.roe)+".":".")+" ",tone="neutral";
+    if(d0&&d1.roe>0&&d0.roe>0&&d1.m>0&&d0.m>0){
+      const L=Math.log,dl=L(d1.roe/d0.roe),dr=(d1.roe-d0.roe)*100,parts=kind==="normal"?[["biên lợi nhuận",L(d1.m/d0.m)],["vòng quay tài sản",L(d1.t/d0.t)],["đòn bẩy",L(d1.l/d0.l)]]:[["ROA",L(d1.m/d0.m)],["đòn bẩy",L(d1.l/d0.l)]];
+      if(Math.abs(dr)<.5)text+="ROE gần như không đổi.";
+      else{
+        const sh=parts.map(([k,x])=>[k,x/dl*dr]).sort((x,y)=>Math.abs(y[1])-Math.abs(x[1])),top=sh[0];
+        text+="ROE "+(dr>0?"tăng ":"giảm ")+nv(Math.abs(dr),1)+" điểm %, đóng góp chính từ "+top[0]+" ("+(top[1]>0?"+":"−")+nv(Math.abs(top[1]),1)+" điểm). Các phần còn lại: "+sh.slice(1).map(x=>x[0]+" "+(x[1]>0?"+":"−")+nv(Math.abs(x[1]),1)).join(", ")+".";
+        const lev=sh.find(x=>x[0]==="đòn bẩy");
+        if(dr>0&&lev&&lev[1]>.5*dr){text+=" ROE tăng chủ yếu nhờ vay nhiều hơn, chất lượng thấp hơn so với tăng nhờ biên hoặc vòng quay.";tone="ok";!dis&&E("ok","ROE tăng chủ yếu nhờ đòn bẩy, không phải nhờ kinh doanh tốt hơn.",2);}
+        else if(dr>0){tone="good";!dis&&E("good","ROE tăng "+nv(dr,1)+" điểm %, chủ yếu nhờ "+top[0]+".",2);}
+        else if(dr<0){tone="bad";!dis&&E("bad","ROE giảm "+nv(-dr,1)+" điểm %, chủ yếu do "+top[0]+" giảm.",2);}
+      }
+    }else if(d1.roe<=0){text+="Lợi nhuận âm nên không tách được các thành phần.";tone="bad";}
+    if(dis){text+=" Biên và vòng quay chịu ảnh hưởng của việc đổi phạm vi hợp nhất, đọc thận trọng.";tone="neutral";}
+    N.dupont={rows,text,tone};
+  }
+  /* ---- 2. Vốn lưu động, nợ, pha loãng (doanh nghiệp thường) ---- */
+  const R={};
+  if(kind==="normal"){
+    const rr=x=>x&&x.dt>0&&x.gv>0?{dso:x.pt!=null?x.pt/(x.dt/365):null,dio:x.ton!=null?x.ton/(x.gv/365):null,dpo:x.ptnb!=null?x.ptnb/(x.gv/365):null}:null,r1=rr(a),r0=rr(o);
+    if(r1&&r1.dso!=null&&r1.dio!=null){
+      const ccc=r1.dso+r1.dio-(r1.dpo||0),ccc0=r0&&r0.dso!=null&&r0.dio!=null?r0.dso+r0.dio-(r0.dpo||0):null,d=ccc0!=null?ccc-ccc0:null;
+      R.ccc={k:"Chu kỳ tiền mặt",tone:lag(d==null?"neutral":d>=15?"bad":d>=5?"ok":d<=-5?"good":"neutral"),text:"Thu tiền "+nv(r1.dso,0)+" ngày + tồn kho "+nv(r1.dio,0)+" ngày − trả nhà cung cấp "+nv(r1.dpo||0,0)+" ngày = "+nv(ccc,0)+" ngày"+(d!=null?" ("+(d>=0?"dài hơn ":"ngắn hơn ")+nv(Math.abs(d),0)+" ngày so với cùng kỳ).":".")+(d!=null&&d>=15?" Vốn bị giữ lâu hơn trong phải thu và hàng tồn.":""),where:d!=null&&d>=5?"Thuyết minh phải thu, hàng tồn kho, phải trả người bán.":""};
+      if(d!=null&&d>=15)E(lag("bad"),"Chu kỳ tiền mặt dài thêm "+nv(d,0)+" ngày, vốn bị giữ trong phải thu và tồn kho.",2);else if(d!=null&&d<=-5)E("good","Chu kỳ tiền mặt ngắn lại "+nv(-d,0)+" ngày, quản lý vốn lưu động tốt hơn.",1.5);
+    }
+    if(a.ebitda!=null){
+      const nd=(a.vay||0)-(a.tien||0),x=a.ebitda>0?nd/a.ebitda:null;
+      R.nde={k:"Nợ ròng/EBITDA",tone:a.ebitda<=0?"bad":nd<0?"good":x<=1.5?"good":x<=3?"ok":"bad",text:a.ebitda<=0?"EBITDA cốt lõi không dương, doanh nghiệp không tự trả được nợ từ hoạt động chính.":nd<0?"Tiền và đầu tư ngắn hạn ("+ty(a.tien)+") nhiều hơn vay ("+ty(a.vay||0)+"), dư tiền ròng "+ty(-nd)+".":"Nợ ròng "+ty(nd)+" bằng "+nv(x,1)+" lần EBITDA cốt lõi 4 quý ("+ty(a.ebitda)+")."+(x>3?" Mức này cao, rủi ro khi lãi suất hoặc lãi cốt lõi giảm.":""),where:a.ebitda<=0||nd/a.ebitda>3?"Lịch đáo hạn nợ, lãi suất và tài sản đảm bảo.":""};
+      if(a.ebitda<=0||x>3)E("bad","Nợ ròng cao so với khả năng sinh tiền (nợ ròng/EBITDA "+(x==null?"không xác định":nv(x,1)+" lần")+").",3);else if(nd<0)E("good","Dư tiền ròng "+ty(-nd)+", bảng cân đối rất an toàn.",1.5);
+    }
+    if(a.vaynh>0.02*a.ts&&a.tien!=null){
+      const c=a.tien/a.vaynh;R.short={k:"Vay ngắn hạn",tone:c>=1?"good":c>=.5?"ok":"bad",text:"Tiền và đầu tư ngắn hạn bao phủ "+PP(c)+" vay ngắn hạn ("+ty(a.vaynh)+")."+(c<.5?" Phải đảo nợ hoặc bán tài sản nếu ngân hàng không gia hạn.":""),where:c<.5?"Kế hoạch trả nợ và hạn mức tín dụng chưa giải ngân.":""};
+      if(c<.5)E("bad","Tiền chỉ bao phủ "+PP(c)+" vay ngắn hạn, có rủi ro phải đảo nợ.",2.5);
+    }
+    if(a.lai>0&&a.core!=null){const c=a.core/a.lai;R.icr={k:"Trả lãi vay",tone:c<1.5?"bad":c<3?"ok":"good",text:"Lãi cốt lõi gấp "+nv(c,1)+" lần chi phí lãi vay"+(c<1.5?": biên an toàn mỏng.":"."),where:c<3?"Lãi suất bình quân và dư nợ vay.":""};if(c<1.5)E("bad","Lãi cốt lõi chỉ gấp "+nv(c,1)+" lần lãi vay.",2.5);}
+    if(o&&o.shares>0&&a.shares>0){
+      const gs=a.shares/o.shares-1,ge=o.ln>0&&a.ln>0?(a.ln/a.shares)/(o.ln/o.shares)-1:null,gl=o.ln>0&&a.ln>0?a.ln/o.ln-1:null;
+      if(gs>.03)R.dil={k:"Pha loãng",tone:gs>.15?"bad":"ok",text:"Vốn góp tăng "+SP(gs)+" trong 12 tháng (số cổ phiếu ước tính từ vốn góp)."+(ge!=null&&gl!=null?" Lợi nhuận tăng "+SP(gl)+" nhưng lợi nhuận mỗi cổ phiếu chỉ "+SP(ge)+".":""),where:"Thuyết minh vốn góp: phát hành cổ phiếu thưởng hay huy động thêm tiền."};
+      if(gs>.15)E("ok","Phát hành thêm làm số cổ phiếu tăng "+SP(gs)+", pha loãng lợi nhuận mỗi cổ phiếu.",1.5);
+    }
+    if(a.ln>0&&a.div!=null){const po=a.div/a.ln;R.payout={k:"Chi cổ tức",tone:po>1?"bad":"neutral",text:"Cổ tức đã trả 4 quý bằng "+PP(po)+" lãi"+(po>1?": chi nhiều hơn lãi, đang tiêu vào vốn.":po>=.4?": trả đều tay cho cổ đông.":": giữ lại phần lớn để tái đầu tư.")};}
+    if(a.capex!=null&&a.dep>0){const c=a.capex/a.dep;R.capex={k:"Đầu tư/khấu hao",tone:c<.6?"ok":"neutral",text:"Chi đầu tư gấp "+nv(c,1)+" lần khấu hao"+(c<.6?": không tái đầu tư tương xứng.":c>1.5?": đang mở rộng.":".")};}
+    if(o&&a.trat>0&&o.trat>0){const g=a.trat/o.trat-1;R.trat={k:"Tiền khách trả trước",tone:lag(g>=.2?"good":g<=-.2?"bad":"neutral"),text:"Tiền khách trả trước và doanh thu chờ ghi nhận "+SP(g)+" so với cùng kỳ ("+ty(a.trat)+"), là chỉ báo đơn hàng hoặc doanh số sắp ghi nhận.",where:g<=-.2?"Giá trị hợp đồng và đơn hàng đã ký.":""};}
+    if(a.ton!=null&&a.ts>0){const c=a.ton/a.ts;R.tonr={k:"Tồn kho/tổng tài sản",tone:c>.5?"bad":c>.35?"ok":"neutral",text:"Hàng tồn kho bằng "+PP(c)+" tổng tài sản"+(c>.5?": vốn nằm nhiều trong hàng, nhạy với thị trường.":".")};}
+    if(a.own>0&&a.ts>0){const nd=(a.vay||0)-(a.tien||0);R.ndo={k:"Nợ ròng/vốn chủ",tone:nd/a.own>1?"bad":nd/a.own>.6?"ok":"good",text:"Nợ vay ròng bằng "+nv(nd/a.own,2)+" lần vốn chủ."};}
+    if(d1&&d1.roe!=null&&a.core>0){const ic=a.own+(a.vay||0)-(a.tien||0);if(ic>0){const r=a.core*.8/ic;R.roic={k:"ROIC",tone:r>=.15?"good":r>=.1?"ok":"bad",text:"ROIC ước tính "+P1(r)+" so với chi phí vốn khoảng 10%"+(r<.1?": tạo ra ít giá trị hơn chi phí vốn.":".")};if(r<.1)E("bad","ROIC "+P1(r)+" thấp hơn chi phí vốn.",2);else if(r>=.15)E("good","ROIC "+P1(r)+" cao hơn hẳn chi phí vốn.",2);}}
+    ["ccc","nde","short","icr","dil","payout"].forEach(k=>{if(R[k])N.wc.push(R[k]);});
+  }
+  /* ---- 3. Quý này có gì mới ---- */
+  {
+    const C=[],add=(sig,tone,text)=>C.push({sig:dis?sig*.6:sig,tone:dis?"neutral":tone,text:text+(dis?" (so sánh đang lệch do đổi phạm vi hợp nhất)":"")});
+    const pp=pL(p),lnq=k=>q("lnme",k)!=null?q("lnme",k):q("lnst",k);
+    if(s.brk&&s.brk.idx!=null&&f.per[s.brk.idx]&&pn(p)-pn(s.brk.p)<=1)C.push({sig:3,tone:"ok",text:"Báo cáo đổi phạm vi hợp nhất từ "+pL(s.brk.p)+": "+s.brk.ev.join("; ")+"."});
+    const revK=kind==="bank"?"nii":"dt",revN=kind==="bank"?"Thu nhập lãi thuần":"Doanh thu",r=q(revK,p),r1=q(revK,p1),r4=q(revK,pq4),gy=gr(r,r4),gq=gr(r,r1);
+    if(gy!=null)add(Math.abs(gy)/.1,gy>=.1?"good":gy<=-.05?"bad":"ok",revN+" quý "+pp+" "+SP(gy)+" so với cùng kỳ"+(gq!=null?" và "+SP(gq)+" so với quý trước":"")+(gq!=null&&gq<-.1&&gy>.05?". Giảm so với quý trước nhưng tăng cùng kỳ, nhiều khả năng do mùa vụ.":gq!=null&&gq>.1&&gy<0?". Tăng so với quý trước nhưng vẫn thấp hơn cùng kỳ.":"."));
+    const l=lnq(p),l4=lnq(pq4),gl=gr(l,l4);
+    if(gl!=null)add(Math.abs(gl)/.15,gl>=.15?"good":gl<=-.1?"bad":"ok","Lãi cổ đông mẹ quý "+pp+" "+SP(gl)+" so với cùng kỳ ("+ty(l)+").");
+    else if(l!=null&&l4!=null&&l4<=0&&l>0)add(2,"good","Lãi cổ đông mẹ quý "+pp+" chuyển từ lỗ sang lãi ("+ty(l)+").");
+    else if(l!=null&&l<0&&l4>0)add(2.5,"bad","Quý "+pp+" lỗ "+ty(-l)+" trong khi cùng kỳ có lãi.");
+    if(kind==="normal"){
+      const gmq=k=>{const a1=q("gop",k),b=q("dt",k);return a1!=null&&b>0?a1/b:null;},g0=gmq(p),g4=gmq(pq4);
+      if(g0!=null&&g4!=null){const d=(g0-g4)*100,hist=[];for(let n=0;n<8;n++){const x=gmq(finIdx(f,p,n));if(x!=null)hist.push(x);}
+        const ext=hist.length>=6?(g0>=Math.max(...hist)?" Cao nhất "+hist.length+" quý.":g0<=Math.min(...hist)?" Thấp nhất "+hist.length+" quý.":""):"";
+        add(Math.abs(d)/1.5+(ext?1:0),d<=-1.5?"bad":d>=1.5?"good":"ok","Biên gộp quý "+pp+" "+P1(g0)+", "+(d>=0?"tăng ":"giảm ")+nv(Math.abs(d),1)+" điểm % so với cùng kỳ."+ext);}
+      const ox=k=>{const x=q("cpbh",k),y=q("cpql",k),b=q("dt",k);return(x!=null||y!=null)&&b>0?(Math.abs(x||0)+Math.abs(y||0))/b:null;},o0=ox(p),o4=ox(pq4);
+      if(o0!=null&&o4!=null){const d=(o0-o4)*100;add(Math.abs(d)/1.5,d>=1.5?"bad":d<=-1.5?"good":"ok","Chi phí bán hàng và quản lý bằng "+P1(o0)+" doanh thu, "+(d>=0?"tăng ":"giảm ")+nv(Math.abs(d),1)+" điểm % so với cùng kỳ.");}
+      const gpt=gr(q("pthkh",p)!=null?q("pthkh",p):q("phaithu",p),q("pthkh",p1)!=null?q("pthkh",p1):q("phaithu",p1));
+      if(gpt!=null&&gq!=null){const gap=gpt-gq;add(Math.abs(gap)/.15,gap>.15?"bad":gap<-.15?"good":"ok","Phải thu "+SP(gpt)+" so với quý trước trong khi doanh thu "+SP(gq)+(gap>.15?": khách đang trả chậm hơn.":"."));}
+      const gtn=gr(q("ton",p),q("ton",p1)),gvq=gr(q("gv",p),q("gv",p1));
+      if(gtn!=null&&gvq!=null){const gap=gtn-gvq;add(Math.abs(gap)/.2,gap>.2?"bad":gap<-.2?"good":"ok","Tồn kho "+SP(gtn)+" so với quý trước trong khi giá vốn "+SP(gvq)+(gap>.2?": hàng đang tích lại.":"."));}
+      const gv2=gr(q("vay",p),q("vay",p1));if(gv2!=null)add(Math.abs(gv2)/.2,gv2>.3?"bad":"ok","Vay nợ "+SP(gv2)+" so với quý trước (còn "+ty(q("vay",p))+").");
+      const cq=q("cfo",p);if(cq!=null&&l!=null){if(cq<0&&l>0)add(2,"bad","Dòng tiền kinh doanh quý "+pp+" âm "+ty(-cq)+" dù có lãi "+ty(l)+".");else if(l>0&&cq>1.5*l)add(1,"good","Dòng tiền kinh doanh quý "+pp+" "+ty(cq)+", gấp "+nv(cq/l,1)+" lần lãi.");}
+      const tc=q("dttc",p),prev=[1,2,3,4].map(n=>q("dttc",finIdx(f,p,n))).filter(x=>x!=null);
+      if(tc!=null&&prev.length>=3){const m=prev.reduce((x,y)=>x+y,0)/prev.length;if(m>0&&tc>1.5*m&&l>0&&(tc-m)>.1*Math.abs(q("lntt",p)||l))add(1.5,"ok","Thu nhập tài chính quý "+pp+" "+ty(tc)+", gấp "+nv(tc/m,1)+" lần bình quân 4 quý trước. Phần lãi này có thể không lặp lại.");}
+    }else if(kind==="bank"){
+      const pv=gr(q("prov",p),q("prov",pq4));if(pv!=null)add(Math.abs(pv)/.3,pv>.3?"bad":"ok","Chi phí dự phòng quý "+pp+" "+SP(pv)+" so với cùng kỳ.");
+      const co=k=>{const x=q("opex",k),y=q("nii",k);return null;};
+    }
+    C.sort((x,y)=>y.sig-x.sig);const top=C.filter(x=>x.sig>=.8).slice(0,3);
+    N.news=top.length?top.map(x=>({tone:x.tone,text:x.text})):[{tone:"neutral",text:"Quý "+pp+" không có thay đổi lớn nào so với quý trước và cùng kỳ."}];
+    top.forEach(x=>E(x.tone,x.text,x.sig>=2?2.5:1));
+  }
+  /* ---- 4. So với cùng ngành ---- */
+  N.peers=peerBlock(s);
+  if(N.peers&&N.peers.rows.length){N.peers.strong.length&&E("good","Mạnh hơn phần lớn nhóm so sánh về "+N.peers.strong.slice(0,3).join(", ")+".",2);N.peers.weak.length&&E("bad","Yếu hơn phần lớn nhóm so sánh về "+N.peers.weak.slice(0,3).join(", ")+".",2);}
+  /* ---- 5. Định giá đảo ngược và 3 kịch bản ---- */
+  {
+    const k=D.discount,eps=s.eps,price=s.price,hist=(a8&&a8.ln>0&&a.ln>0)?Math.pow(a.ln/a8.ln,.5)-1:(o&&o.ln>0&&a.ln>0?a.ln/o.ln-1:null);
+    if(eps>0&&price>0){
+      const im=impliedGrowth(eps,price,k),g=im.g;
+      let tone="ok",t="Với giá "+vnd(price)+" và EPS "+vnd(eps)+", thị trường đang hàm ý lợi nhuận "+(g<0?"giảm ":"tăng ")+(im.edge==="low"?"hơn ":im.edge==="high"?"trên ":"khoảng ")+nv(Math.abs(g)*100,1)+"%/năm trong 10 năm tới (rồi giảm dần về 4%, chiết khấu "+nv(k*100,0)+"%). ";
+      if(hist!=null){t+="Lịch sử "+(a8&&a8.ln>0?"2 năm":"1 năm")+" qua là "+SP(hist)+"/năm. ";
+        if(g<=Math.max(.03,hist*.7)){tone="good";t+="Kỳ vọng thấp hơn đà đã đạt, giá chưa đòi hỏi nhiều.";E("good","Giá chỉ hàm ý lợi nhuận "+(g<0?"giảm ":"tăng ")+nv(Math.abs(g)*100,0)+"%/năm, thấp hơn đà lịch sử ("+SP(hist)+").",2);}
+        else if(g<=hist*1.3){tone="ok";t+="Kỳ vọng tương đương đà đã đạt, cần giữ được nhịp này.";}
+        else{tone="bad";t+="Kỳ vọng cao hơn đà đã đạt, giá đang tính trước phần tăng trưởng chưa có.";E("bad","Giá hàm ý lợi nhuận tăng "+nv(g*100,0)+"%/năm, cao hơn đà lịch sử ("+SP(hist)+").",2.5);}
+      }
+      const base=clamp(.3*(hist==null?.05:hist)+.7*.05,-.05,.12),sc=[["Xấu",Math.max(-.1,base-.05),.85],["Cơ sở",base,1],["Tốt",Math.min(.2,base+.05),1.1]].map(([n,gg,m])=>{const fair=pvEarn(eps*m,gg,k);return{n,g:gg,eps:eps*m,fair,mos:fair/price-1};});
+      N.rev={tone,text:t,scen:sc,k,hist,implied:g,edge:im.edge};
+    }else N.rev={tone:"neutral",text:eps!=null&&eps<=0?"Lợi nhuận 4 quý âm nên không tính được kỳ vọng ngầm trong giá.":"Chưa đủ giá hoặc EPS để tính.",scen:[]};
+  }
+  /* ---- 6. Góc nhìn riêng theo ngành ---- */
+  if(kind==="normal"){
+    const cyc=()=>{const gm=[];for(let n=0;n<8;n++){const k=finIdx(f,p,n),b=q("dt",k),c=q("gop",k);if(b>0&&c!=null)gm.push(c/b);}
+      if(gm.length<6)return null;const g0=gm[0],mx=Math.max(...gm),mn=Math.min(...gm),gl=gr(a.ln,o&&o.ln);
+      const top=g0>=mx-.001,bot=g0<=mn+.001;
+      return{k:"Vị trí chu kỳ",tone:top&&gl>.3?"bad":bot?"ok":"neutral",text:"Biên gộp quý gần nhất "+P1(g0)+" (khoảng "+P1(mn)+" đến "+P1(mx)+" trong "+gm.length+" quý)."+(top?" Đang ở mức cao nhất"+(gl>.3?" cùng lợi nhuận tăng mạnh, có thể gần đỉnh chu kỳ, đừng ngoại suy mức này.":"."):bot?" Đang ở đáy của khoảng này, cần xem tín hiệu phục hồi giá bán hoặc giá nguyên liệu.":" Nằm giữa khoảng."),where:top||bot?"Giá hàng hóa và giá nguyên liệu đầu vào cùng kỳ.":""};};
+    if(a.dt>0&&a.gop!=null&&o&&o.dt>0&&o.gop!=null){const d=(a.gop/a.dt-o.gop/o.dt)*100;R.gm={k:"Biên gộp",tone:lag(d<=-2?"bad":d>=1.5?"good":"neutral"),text:"Biên gộp 4 quý "+P1(a.gop/a.dt)+", "+(d>=0?"tăng ":"giảm ")+nv(Math.abs(d),1)+" điểm % so với năm trước."};}
+    if(o&&a.dt>0&&o.dt>0){const gg=a.dt/o.dt-1,gp=a.ln>0&&o.ln>0?a.ln/o.ln-1:null;R.grow={k:"Tăng trưởng",tone:lag(gg>=.15?"good":gg<=0?"bad":"ok"),text:"Doanh thu "+SP(gg)+(gp!=null?", lợi nhuận "+SP(gp):"")+" so với 4 quý trước đó."};}
+    if(R.dso==null){const x=a.dt>0&&a.pt!=null?a.pt/(a.dt/365):null,x0=o&&o.dt>0&&o.pt!=null?o.pt/(o.dt/365):null;if(x!=null){const d=x0!=null?x-x0:null;R.dso={k:"Số ngày thu tiền",tone:lag(d==null?"neutral":d>=20?"bad":d>=8?"ok":"neutral"),text:"Phải thu bằng "+nv(x,0)+" ngày doanh thu"+(d!=null?" ("+(d>=0?"tăng ":"giảm ")+nv(Math.abs(d),0)+" ngày so với năm trước).":".")};}}
+    if(a.gv>0&&a.ton!=null){const x=a.gv/a.ton,x0=o&&o.gv>0&&o.ton>0?o.gv/o.ton:null;R.turn={k:"Vòng quay tồn kho",tone:lag(x0!=null&&x<x0*.85?"bad":"neutral"),text:"Tồn kho quay "+nv(x,1)+" vòng/năm"+(x0!=null?" (năm trước "+nv(x0,1)+").":".")};}
+    const LENS={
+      "Bất động sản":["Bất động sản","Doanh thu bất động sản ghi nhận theo bàn giao, nên tiền khách trả trước và tồn kho dự án quan trọng hơn doanh thu quý.",["trat","tonr","ndo","icr","short"]],
+      "Bán lẻ":["Bán lẻ và tiêu dùng","Sống nhờ vòng quay hàng và biên gộp ổn định, vốn lưu động là điểm mấu chốt.",["turn","gm","ccc","payout","grow"]],
+      "Tiêu dùng":["Bán lẻ và tiêu dùng","Sống nhờ vòng quay hàng và biên gộp ổn định, vốn lưu động là điểm mấu chốt.",["turn","gm","ccc","payout","grow"]],
+      "Thép":["Hàng hóa chu kỳ","Lợi nhuận phụ thuộc chênh lệch giá bán và giá nguyên liệu, đỉnh chu kỳ thường làm báo cáo đẹp nhất đúng lúc rủi ro lớn nhất.",["cyc","tonr","nde","icr","grow"]],
+      "Hóa chất":["Hàng hóa chu kỳ","Lợi nhuận phụ thuộc chênh lệch giá bán và giá nguyên liệu, đỉnh chu kỳ thường làm báo cáo đẹp nhất đúng lúc rủi ro lớn nhất.",["cyc","tonr","nde","icr","grow"]],
+      "Vật liệu":["Hàng hóa chu kỳ","Lợi nhuận phụ thuộc chênh lệch giá bán và giá nguyên liệu, đỉnh chu kỳ thường làm báo cáo đẹp nhất đúng lúc rủi ro lớn nhất.",["cyc","tonr","nde","icr","grow"]],
+      "Dầu khí":["Hàng hóa chu kỳ","Lợi nhuận phụ thuộc giá dầu và biên lọc hóa dầu, rất dao động theo chu kỳ.",["cyc","tonr","nde","capex","grow"]],
+      "Dệt may":["Xuất khẩu theo đơn hàng","Doanh thu đi theo đơn hàng và tỷ giá, vốn lưu động và biên gộp là chỉ báo chính.",["gm","ccc","dso","tonr","grow"]],
+      "Điện":["Điện và tiện ích","Dòng tiền ổn định nhưng vốn đầu tư nặng, an toàn nợ và cổ tức là trọng tâm.",["nde","icr","payout","capex","short"]],
+      "Hàng không":["Vận tải","Chi phí cố định và nợ thuê lớn, lợi nhuận rất nhạy với một vài quý xấu.",["nde","icr","capex","short","grow"]],
+      "Công nghệ":["Công nghệ","Giá trị đến từ tăng trưởng và biên cao, rủi ro nằm ở phải thu và khả năng giữ đà.",["grow","gm","dso","roic","dil"]],
+      "Công nghiệp":["Công nghiệp và xây lắp","Doanh thu đi theo hợp đồng, tiền ứng trước và phải thu quyết định chất lượng lãi.",["trat","dso","ccc","nde","grow"]]
+    };
+    const L=LENS[s.sector]||["Chung","Chưa có bộ chỉ tiêu riêng cho ngành này, dùng bộ chung.",["ccc","nde","roic","grow","dil"]];
+    R.cyc=cyc();
+    const rows=L[2].map(k=>R[k]).filter(Boolean);
+    N.lens={name:L[0],intro:L[1],rows};
+    rows.forEach(r=>{if(r.tone==="bad")E("bad",r.k+": "+firstSent(r.text,100),2);});
+  }else if(kind==="bank"&&s.ext){
+    const X=s.ext,rows=[];
+    if(X.cir!=null)rows.push({k:"Chi phí/thu nhập",tone:X.cir>55?"bad":X.cir>45?"ok":"good",text:"CIR "+nv(X.cir,0)+"%"+(X.cir>55?": bộ máy tốn kém so với thu nhập.":".")});
+    if(X.ldr!=null)rows.push({k:"Cho vay/tiền gửi",tone:X.ldr>100?"ok":"good",text:"Cho vay bằng "+nv(X.ldr,0)+"% tiền gửi khách hàng"+(X.ldr>100?": phải dựa thêm nguồn vốn khác.":".")});
+    if(X.creditCost!=null)rows.push({k:"Chi phí tín dụng",tone:X.creditCost>2?"bad":X.creditCost>1.2?"ok":"good",text:"Chi phí dự phòng bằng "+nv(X.creditCost,2)+"% dư nợ."});
+    if(X.loanGrowth!=null)rows.push({k:"Tăng tín dụng",tone:X.loanGrowth>25?"ok":"neutral",text:"Dư nợ tăng "+SP(X.loanGrowth/100)+"; "+(X.loanGrowth>25?"tăng nhanh làm rủi ro chất lượng tài sản.":"ở mức bình thường.")});
+    N.lens={name:"Ngân hàng",intro:"Ngân hàng kiếm tiền từ chênh lệch lãi suất, rủi ro nằm ở chất lượng tài sản. Nợ xấu và CAR không có trong dữ liệu CafeF.",rows};
+    rows.forEach(r=>{if(r.tone==="bad")E("bad",r.k+": "+r.text,2);});
+  }else if(kind==="sec"&&s.ext){
+    const X=s.ext,rows=[];
+    if(X.lev!=null)rows.push({k:"Đòn bẩy",tone:X.lev>3.5?"bad":"ok",text:"Tài sản bằng "+nv(X.lev,2)+" lần vốn chủ."});
+    if(X.marginRatio!=null)rows.push({k:"Cho vay",tone:X.marginRatio>1.2?"ok":"neutral",text:"Các khoản cho vay bằng "+nv(X.marginRatio,2)+" lần vốn chủ."});
+    if(X.propRatio!=null)rows.push({k:"Tự doanh",tone:X.propRatio>1?"ok":"neutral",text:"Tài sản FVTPL bằng "+nv(X.propRatio,2)+" lần vốn chủ; lãi lỗ phụ thuộc thị trường."});
+    N.lens={name:"Chứng khoán",intro:"Lợi nhuận đi theo thanh khoản thị trường và điểm số, quý tốt dễ bị ngoại suy sai.",rows};
+  }
+  /* ---- 7. Luận điểm, động lực, rủi ro, điều cần theo dõi ---- */
+  const eq=s.eq,wcRow=k=>R[k];
+  const g=s.epsGrowth,roe=s.roe,po=R.payout&&a.ln>0&&a.div!=null?a.div/a.ln:null,nde=a.ebitda>0?((a.vay||0)-(a.tien||0))/a.ebitda:null;
+  let type="Ổn định",def="Chưa có điểm nổi trội hay điểm yếu lớn về tăng trưởng và đòn bẩy.";
+  const cycSec=/^(Thép|Hóa chất|Vật liệu|Dầu khí)$/.test(s.sector);
+  if(roe!=null&&roe<0||(eq&&eq.key==="loss")){type="Đang lỗ";def="Kinh doanh chưa tạo ra lãi, luận điểm đầu tư dựa vào khả năng phục hồi.";}
+  else if(eq&&eq.key==="noncore"){type="Lãi dựa vào khoản phụ";def="Phần lớn lãi đến từ tài chính, liên kết hoặc thu nhập khác, không phải kinh doanh chính.";}
+  else if(kind==="normal"&&(nde>3||(a.lai>0&&a.core/a.lai<1.5))){type="Đòn bẩy cao";def="Nợ lớn so với khả năng sinh tiền, kết quả nhạy với lãi suất và chu kỳ.";}
+  else if(cycSec){type="Doanh nghiệp chu kỳ";def="Lợi nhuận lên xuống theo giá hàng hóa, giá hợp lý thay đổi theo vị trí trong chu kỳ.";}
+  else if(g!=null&&g>=15&&roe>=15){type="Tăng trưởng chất lượng";def="Lợi nhuận tăng nhanh trên nền ROE cao, loại doanh nghiệp đáng trả giá cao hơn trung bình.";}
+  else if(g!=null&&g>=10){type="Đang tăng trưởng";def="Lợi nhuận tăng tốt, câu hỏi chính là đà này có bền không.";}
+  else if(g!=null&&g<=-10){type="Suy giảm";def="Lợi nhuận đang đi xuống, giá rẻ có thể là bẫy nếu xu hướng chưa đảo chiều.";}
+  else if(po!=null&&po>=.4&&(nde==null||nde<1.5)){type="Ổn định, trả cổ tức";def="Tăng trưởng vừa phải, trả cổ tức đều và ít nợ, hợp với nhà đầu tư giữ dài hạn.";}
+  if(eq&&eq.key==="stagn"&&type==="Ổn định"){type="Trì trệ";def="Lãi còn nhưng doanh thu đi ngang và các chỉ số vận hành không cải thiện.";}
+  const ps=[];
+  ps.push(s.t+" thuộc nhóm \""+type.toLowerCase()+"\". "+def);
+  if(d1)ps.push("ROE "+P1(d1.roe)+(N.dupont&&N.dupont.tone!=="neutral"?"; "+firstSent(N.dupont.text.replace(/^ROE [^.]*\.\s*/,""),170):"")+(eq?(eq.coreShare!=null?" Lãi cốt lõi chiếm "+PP(eq.coreShare)+" lợi nhuận trước thuế.":"")+" Nhãn chất lượng lãi: "+eq.label.toLowerCase()+".":""));
+  if(N.rev&&N.rev.text)ps.push(firstSent(N.rev.text,200)+(v&&v.fair!=null?" Mô hình định giá cho mức hợp lý khoảng "+vnd(v.fair)+" (biên an toàn "+signedPct(v.mos,0)+").":""));
+  if(N.peers&&N.peers.rows.length)ps.push(N.peers.text);
+  const drivers=EV.filter(x=>x.tone==="good").sort((x,y)=>y.w-x.w),risks=EV.filter(x=>x.tone==="bad"||x.tone==="ok").sort((x,y)=>(y.tone==="bad")-(x.tone==="bad")||y.w-x.w);
+  const uniq=(L)=>{const seen=new Set(),out=[];L.forEach(x=>{const k=x.text.slice(0,40);if(!seen.has(k)){seen.add(k);out.push(x);}});return out;};
+  N.drivers=uniq(drivers).slice(0,3);N.risks=uniq(risks).slice(0,3);
+  N.thesis={type,def,paras:ps};
+  /* điều cần theo dõi ở quý sau */
+  const W=N.watch,nq=pL(p).replace(/Q(\d)\/(\d+)/,(m,qq,yy)=>qq==="4"?"Q1/"+(+yy+1):"Q"+(+qq+1)+"/"+yy);
+  const b4=q("dt",pq4),lq=q("lnme",p)!=null?q("lnme",p):q("lnst",p);
+  if(kind==="normal"&&b4>0){
+    if(dis){const rq=q("dt",p);if(rq>0){W.confirm.push("Doanh thu quý "+nq+" không thấp hơn quý "+pL(p)+" ("+ty(rq)+"), cho thấy phần còn lại của tập đoàn giữ được nhịp.");W.invalid.push("Doanh thu quý "+nq+" dưới 95% quý "+pL(p)+".");}}
+    else{W.confirm.push("Doanh thu quý "+nq+" từ "+ty(b4)+" trở lên (bằng cùng kỳ năm trước).");W.invalid.push("Doanh thu quý "+nq+" dưới "+ty(b4*.95)+" (thấp hơn 5% so với cùng kỳ).");}
+  }
+  if(kind==="normal"&&a.dt>0&&a.gop!=null){const m=a.gop/a.dt;W.confirm.push("Biên gộp quý "+nq+" không thấp hơn "+P1(m-.005)+" (mức bình quân 4 quý hiện tại "+P1(m)+").");W.invalid.push("Biên gộp quý "+nq+" tụt dưới "+P1(m-.02)+".");}
+  if(kind==="normal"&&lq>0&&((eq&&eq.sections.some(g=>g.rows.some(r=>(r.k==="Dòng tiền"||r.k==="Theo quý")&&r.tone!=="good")))||(q("cfo",p)!=null&&q("cfo",p)<lq*.5))){W.confirm.push("Dòng tiền kinh doanh quý "+nq+" bằng ít nhất lãi sau thuế (khoảng "+ty(lq)+").");W.invalid.push("Dòng tiền kinh doanh quý "+nq+" tiếp tục âm hoặc dưới một nửa lãi.");}
+  if(R.ccc&&R.ccc.tone!=="good"&&R.ccc.tone!=="neutral"){W.confirm.push("Chu kỳ tiền mặt ngừng dài thêm (phải thu và tồn kho tăng không nhanh hơn doanh thu).");W.invalid.push("Phải thu hoặc tồn kho lại tăng nhanh hơn doanh thu quý tới.");}
+  if(R.nde&&R.nde.tone==="bad"||R.short&&R.short.tone==="bad"||R.icr&&R.icr.tone==="bad"){W.confirm.push("Vay nợ giảm hoặc đi ngang, lãi cốt lõi đủ phủ lãi vay.");W.invalid.push("Nợ vay tăng thêm trong khi lãi cốt lõi không tăng.");}
+  if(kind==="bank"&&s.ext){const X=s.ext;if(X.creditCost!=null){W.confirm.push("Chi phí dự phòng quý "+nq+" không cao hơn mức hiện tại ("+nv(X.creditCost,2)+"% dư nợ).");W.invalid.push("Chi phí dự phòng tăng vọt hoặc nợ xấu công bố tăng mạnh.");}if(X.cir!=null){W.confirm.push("CIR giữ dưới "+nv(Math.max(X.cir,40)+3,0)+"%.");W.invalid.push("CIR vượt "+nv(Math.max(X.cir,40)+8,0)+"%.");}}
+  if(kind==="sec"){W.confirm.push("Thanh khoản thị trường giữ mức hiện tại hoặc tăng.");W.invalid.push("Thanh khoản thị trường giảm mạnh trong khi dư nợ cho vay và tự doanh còn lớn.");}
+  if(v&&v.fair!=null&&s.price>0&&s.eps>0&&v.mos>0){const cut=1-s.price/v.fair;W.invalid.push("Nếu lợi nhuận 4 quý giảm quá "+nv(cut*100,0)+"%, biên an toàn hiện tại về 0 (ước tính theo tỷ lệ).");}
+  else if(v&&v.fair!=null&&v.mos<0&&s.eps>0){const need=s.price/v.fair-1;W.confirm.push("Lợi nhuận 4 quý cần tăng thêm khoảng "+nv(need*100,0)+"% để giá hiện tại trở về mức hợp lý.");}
+  if(dis)W.confirm.push("Từ quý "+nq+" trở đi, so sánh cùng kỳ chỉ sạch lại sau khoảng 4 quý kể từ "+pL(s.brk.p)+".");
+  N.lensRows=R;return N;
+}
+
+const ANC=new Map();
+const note=(s,v)=>{const k=s.t+"|"+D.discount+"|"+D.growth+"|"+(s.fin?s.fin.last:"");let n=ANC.get(k);if(n===undefined){try{n=analystNote(s,v);}catch(e){console.error(e);n=null;}ANC.set(k,n);}return n;};
+function notePanel(s,v,N){
+  if(!N)return'<div class="'+card+' p-4 text-sm text-muted">Chưa đủ báo cáo để viết bản ghi phân tích.</div>';
+  const li=(arr,tone)=>arr.length?'<ul class="mt-1 space-y-1.5">'+arr.map(x=>'<li class="flex items-start gap-2 text-sm"><i class="mt-1.5 h-2 w-2 shrink-0 rounded-full '+DOT[tone||x.tone]+'"></i><span class="min-w-0">'+esc(x.text||x)+'</span></li>').join("")+'</ul>':'<p class="mt-1 text-sm text-muted">Chưa thấy điểm nổi bật rõ ràng.</p>';
+  const th=N.thesis;
+  let h='<div class="'+card+' p-4"><div class="text-xs font-medium uppercase tracking-wide text-muted">Luận điểm</div><h2 class="mt-0.5 text-lg font-semibold">'+esc(th.type)+'</h2>'+th.paras.map(p=>'<p class="mt-2 text-sm">'+esc(p)+'</p>').join("")+
+    '<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"><div class="min-w-0"><div class="text-xs font-semibold text-up">Điểm tựa</div>'+li(N.drivers,"good")+'</div><div class="min-w-0"><div class="text-xs font-semibold text-down">Rủi ro</div>'+li(N.risks)+'</div></div>'+
+    '<p class="mt-3 text-[11px] text-muted">Suy ra từ 3 báo cáo CafeF (KQKD, CĐKT, LCTT). Không có thuyết minh, kế hoạch hay lời ban lãnh đạo, nên đây là suy luận từ số liệu, không phải khuyến nghị.</p></div>';
+  h+=acc("n-new","Quý này có gì mới","",itemRowsNote(N.news),true,N.news.some(x=>x.tone==="bad")?"bad":N.news.every(x=>x.tone==="good")?"good":"ok");
+  const w=N.watch;
+  h+=acc("n-watch","Quý sau cần thấy gì",w.confirm.length+" điều kiện xác nhận · "+w.invalid.length+" điều kiện sai",'<div class="text-xs font-semibold text-up">Luận điểm đứng vững nếu</div>'+li(w.confirm,"good")+'<div class="mt-3 text-xs font-semibold text-down">Luận điểm sai nếu</div>'+li(w.invalid,"bad"),true);
+  if(N.dupont)h+=acc("n-dup","Vì sao ROE như vậy (DuPont)",firstSent(N.dupont.text,80),'<p class="text-sm">'+esc(N.dupont.text.replace(/^ROE [^.]*\.\s*/,""))+'</p><div class="mt-2 divide-y divide-line">'+N.dupont.rows.map(r=>'<div class="flex items-center justify-between gap-2 py-1.5 text-sm"><span class="min-w-0">'+esc(r.k)+'</span><span class="shrink-0 font-mono text-xs"><b>'+esc(r.now)+'</b> <span class="text-muted">năm trước '+esc(r.prev)+'</span></span></div>').join("")+'</div>',false,N.dupont.tone==="neutral"?"":N.dupont.tone);
+  if(N.wc.length)h+=acc("n-wc","Vốn lưu động, nợ, pha loãng",N.wc.filter(x=>x.tone==="bad").length+" điểm yếu",itemRows(N.wc.map(x=>({k:x.k,tone:x.tone,text:x.text+(x.where?" Cần xem: "+x.where:"")}))),false,N.wc.some(x=>x.tone==="bad")?"bad":"");
+  if(N.peers)h+=acc("n-peer","So với cùng ngành",N.peers.rows.length?N.peers.strong.length+" mạnh · "+N.peers.weak.length+" yếu":"chưa đủ mã",N.peers.rows.length?'<p class="text-sm">'+esc(N.peers.text)+'</p><div class="rscroll mt-2 overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-xs text-muted"><th class="py-1 pr-2 text-left font-medium">Chỉ số</th><th class="px-2 text-right font-medium">'+esc(s.t)+'</th><th class="px-2 text-right font-medium">Trung vị</th><th class="pl-2 text-right font-medium">Hơn</th></tr></thead><tbody>'+N.peers.rows.map(r=>'<tr class="border-t border-line/70"><td class="py-1.5 pr-2">'+esc(r.k)+'</td><td class="whitespace-nowrap px-2 text-right font-mono">'+esc(r.val)+'</td><td class="whitespace-nowrap px-2 text-right font-mono text-muted">'+esc(r.med)+'</td><td class="pl-2 text-right"><span class="rounded px-1.5 py-0.5 text-[11px] font-semibold '+TONEC[r.tone]+'">'+nv(r.pct,0)+'%</span></td></tr>').join("")+'</tbody></table></div><p class="mt-2 text-xs text-muted">"Hơn" là tỷ lệ mã trong nhóm ('+N.peers.n+' mã) kém hơn mã này; với P/E, P/B, nợ thì thấp hơn là tốt hơn. Độ chính xác phụ thuộc số mã ông đã thêm.</p>':'<p class="text-sm text-muted">'+esc(N.peers.text)+'</p>',false);
+  if(N.rev&&N.rev.text)h+=acc("n-rev","Giá đang kỳ vọng gì",N.rev.implied!=null?"hàm ý "+(N.rev.implied<0?"giảm ":"tăng ")+nv(Math.abs(N.rev.implied)*100,0)+"%/năm":"",'<p class="text-sm">'+esc(N.rev.text)+'</p>'+(N.rev.scen.length?'<div class="rscroll mt-2 overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-xs text-muted"><th class="py-1 pr-2 text-left font-medium">Kịch bản</th><th class="px-2 text-right font-medium">Tăng/năm</th><th class="px-2 text-right font-medium">Giá trị</th><th class="pl-2 text-right font-medium">So với giá</th></tr></thead><tbody>'+N.rev.scen.map(r=>'<tr class="border-t border-line/70"><td class="py-1.5 pr-2">'+r.n+'</td><td class="whitespace-nowrap px-2 text-right font-mono">'+signedPct(r.g*100,0)+'</td><td class="whitespace-nowrap px-2 text-right font-mono">'+vnd(r.fair)+'</td><td class="whitespace-nowrap pl-2 text-right font-mono '+(r.mos>=0?"text-up":"text-down")+'">'+signedPct(r.mos*100,0)+'</td></tr>').join("")+'</tbody></table></div><p class="mt-2 text-xs text-muted">Mô hình đơn giản: lợi nhuận tăng đều 10 năm rồi giảm dần về 4%, chiết khấu '+nv(N.rev.k*100,0)+'%. Kịch bản cơ sở lấy 30% đà lịch sử cộng 70% mức 5% (tối đa 12%); xấu/tốt lệch 5 điểm %. Mô hình định giá chính của app thận trọng hơn nên con số có thể khác. Chỉ để cảm nhận độ nhạy, không phải dự báo.</p>':''),false,N.rev.tone==="neutral"?"":N.rev.tone);
+  if(N.lens&&N.lens.rows.length)h+=acc("n-lens","Góc nhìn ngành: "+N.lens.name,N.lens.rows.filter(x=>x.tone==="bad").length+" điểm yếu",'<p class="mb-1 text-sm text-muted">'+esc(N.lens.intro)+'</p>'+itemRows(N.lens.rows.map(x=>({k:x.k,tone:x.tone,text:x.text+(x.where?" Cần xem: "+x.where:"")}))),false,N.lens.rows.some(x=>x.tone==="bad")?"bad":"");
+  return h;
+}
+const itemRowsNote=a=>'<ul class="space-y-2">'+a.map(x=>'<li class="flex items-start gap-2 text-sm"><i class="mt-1.5 h-2 w-2 shrink-0 rounded-full '+DOT[x.tone]+'"></i><span class="min-w-0">'+esc(x.text)+'</span></li>').join("")+'</ul>';
+
+function vTiles(s,v,E,c){
+  const T=[],vt={cheap:"good","soft-cheap":"good",fair:"ok",rich:"bad"}[v.verdict]||"neutral",fin=s.kind!=="normal"&&s.hasFin,X=s.ext||{},q=s.q;
+  T.push({id:"val",label:"Định giá",val:v.fair!=null?v.verdictLabel:"—",sub:v.fair!=null?"biên an toàn "+signedPct(v.mos,0):"chưa đủ mô hình",tone:vt});
+  if(E)T.push({id:"eq",label:"Chất lượng lãi",val:E.score!=null?E.score+"/100":"—",sub:E.label,tone:E.tone});
+  else if(fin)T.push({id:"eq",label:"Hiệu quả",val:s.roe!=null?"ROE "+nv(s.roe,1)+"%":"—",sub:s.kind==="bank"?"Ngân hàng":"Chứng khoán",tone:s.roe==null?"neutral":s.roe>=(s.kind==="bank"?12:10)?"good":s.roe>=0?"ok":"bad"});
+  else T.push({id:"eq",label:"Chất lượng lãi",val:"—",sub:"chưa có báo cáo",tone:"neutral"});
+  if(s.kind==="normal"&&q)T.push({id:"fin",label:"Sức khỏe BCTC",val:q.tot!=null?nv(q.tot,0)+"/100":"—",sub:q.cao?q.cao+" cờ đỏ":"không cờ đỏ",tone:q.cao>=2?"bad":q.cao===1?"ok":"good"});
+  else if(s.kind==="bank")T.push({id:"fin",label:"Rủi ro",val:X.cir!=null?"CIR "+nv(X.cir,0)+"%":"—",sub:X.loanGrowth!=null?"tín dụng "+signedPct(X.loanGrowth,0):"",tone:X.cir==null?"neutral":X.cir>55?"bad":"good"});
+  else if(s.kind==="sec")T.push({id:"fin",label:"Rủi ro",val:X.lev!=null?nv(X.lev,1)+"×":"—",sub:"đòn bẩy",tone:X.lev==null?"neutral":X.lev>3.5?"bad":"ok"});
+  else T.push({id:"fin",label:"Sức khỏe BCTC",val:"—",sub:"chưa có báo cáo",tone:"neutral"});
+  if(s.hasPx&&s.trend){const t=readTech(s);T.push({id:"tech",label:"Kỹ thuật",val:TREND_LABEL[s.trend]||"—",sub:"RSI "+nv(s.rsi,0),tone:t.bias==="up"?"good":t.bias==="down"?"bad":"ok"});}
+  else T.push({id:"tech",label:"Kỹ thuật",val:"—",sub:"chưa có giá",tone:"neutral"});
+  const N=note(s,v);
+  if(N)T.push({id:"note",label:"Bản ghi",val:N.thesis.type,sub:N.drivers.length+" điểm tựa · "+N.risks.length+" rủi ro",tone:N.risks.some(x=>x.tone==="bad")&&N.risks.length>N.drivers.length?"bad":N.drivers.length>=N.risks.length&&N.drivers.length?"good":"ok"});
+  return T;
+}
+function vKeyPoints(s,v,E,c){
+  const C=[];
+  if(s.brk&&s.brk.distorted)C.push({p:5,tone:"ok",t:"Báo cáo đổi phạm vi hợp nhất từ "+pL(s.brk.p)+", so sánh cùng kỳ đang lệch.",tab:"eq"});
+  if(E)E.sections.forEach(g=>g.rows.forEach(r=>{if(r.lech)return;
+    if(r.tone==="bad")C.push({p:4,tone:"bad",t:r.k+": "+firstSent(r.text),tab:"eq"});
+    else if(r.tone==="ok"&&r.where)C.push({p:2,tone:"ok",t:r.k+": "+firstSent(r.text),tab:"eq"});
+    else if(r.tone==="good"&&/^(Cơ cấu lãi|Dòng tiền|ROIC|Doanh thu|Lãi cốt lõi)$/.test(r.k))C.push({p:1,tone:"good",t:r.k+": "+firstSent(r.text),tab:"eq"});}));
+  c.items.forEach(x=>{if(x.tone==="bad"&&!/^(Chất lượng lãi|Định giá|Kỹ thuật|Dòng tiền)$/.test(x.k)&&!(E&&/^(Sinh lời|Tăng trưởng)$/.test(x.k)))C.push({p:3,tone:"bad",t:x.k+": "+firstSent(x.text),tab:/^(Sinh lời|Tăng trưởng)$/.test(x.k)?"eq":"fin"});
+    if(x.tone==="good"&&!E&&x.k==="Sinh lời")C.push({p:1,tone:"good",t:firstSent(x.text),tab:"eq"});});
+  if(v.fair!=null){
+    if(v.verdict==="cheap"||v.verdict==="soft-cheap")C.push({p:3,tone:"good",t:"Giá thấp hơn mức hợp lý, dư địa "+signedPct(v.upside,0)+".",tab:"val"});
+    else if(v.verdict==="rich")C.push({p:3,tone:"bad",t:"Giá cao hơn mức hợp lý "+nv(Math.abs(v.upside),0)+"%, chưa có biên an toàn.",tab:"val"});
+    else C.push({p:1,tone:"ok",t:"Giá gần mức hợp lý, biên an toàn "+signedPct(v.mos,0)+".",tab:"val"});}
+  if(s.hasPx&&s.trend==="down")C.push({p:2,tone:"bad",t:"Xu hướng giá đang giảm, RSI "+nv(s.rsi,0)+".",tab:"tech"});
+  else if(s.hasPx&&s.trend==="up")C.push({p:1,tone:"good",t:"Xu hướng giá đang tăng, RSI "+nv(s.rsi,0)+".",tab:"tech"});
+  const neg=C.filter(x=>x.tone!=="good").sort((a,b)=>b.p-a.p),pos=C.filter(x=>x.tone==="good").sort((a,b)=>b.p-a.p);
+  const out=[...neg.slice(0,2),...pos.slice(0,1)];
+  [...neg.slice(2),...pos.slice(1)].forEach(x=>{if(out.length<3)out.push(x);});
+  return out.slice(0,3);
+}
+function vPanel(s,v,E,c,tab){
+  const fin=s.kind!=="normal"&&s.hasFin;
+  if(tab==="note")return notePanel(s,v,note(s,v));
+  if(tab==="val"){
+    const m=referenceMultiples(s.sector),n=v.models.filter(x=>x.counted).length;
+    return'<div class="'+card+' p-4"><p class="text-sm">'+esc(v.narrative)+'</p>'+meter(s,v)+'</div>'+
+    acc("models","Các mô hình định giá",n+" trên "+v.models.length+" mô hình được tính",'<div class="divide-y divide-line">'+v.models.map(md=>'<div class="py-2.5 first:pt-0"><div class="flex items-baseline justify-between gap-2"><span class="text-sm font-medium">'+md.name+' <span class="text-xs font-normal text-muted">trọng số '+nv(md.weight*100,0)+'%</span></span><span class="font-mono text-sm '+(md.counted?"":"text-muted")+'">'+(md.fair==null?"—":vnd(md.fair))+'</span></div><p class="text-xs text-muted">'+(md.counted?'<span class="text-up">Được tính.</span> ':'<span>Không tính.</span> ')+esc(md.note)+'</p></div>').join("")+'</div>',true)+
+    acc("assume","Giả định và bội số","Chiết khấu "+nv(D.discount*100,0)+"%, tăng trưởng "+(D.growth==null?"tự động":nv(D.growth,1)+"%"),
+      '<div class="rounded-md bg-paper p-3"><div class="flex items-center justify-between text-sm"><label for="disc">Suất chiết khấu (cho Gordon)</label><span class="font-mono" id="discV">'+nv(D.discount*100,0)+'%</span></div><input id="disc" type="range" min="8" max="16" step="1" value="'+Math.round(D.discount*100)+'"/>'+
+      '<label class="mt-1 block text-xs text-muted">Tăng trưởng dài hạn g (%), để trống nếu muốn tự động<input id="gro" type="number" inputmode="decimal" step="0.5" value="'+(D.growth==null?"":D.growth)+'" class="mt-1 w-full rounded-md border border-line bg-card px-3 py-2 text-sm text-ink"/></label></div>'+
+      '<p class="mt-2 text-xs text-muted">Bội số tham chiếu: P/E '+nv(m.pe,1)+'× ('+m.peScope+'), P/B '+nv(m.pb,1)+'× ('+m.pbScope+'). Ngành chỉ được dùng khi có ít nhất 5 mã cùng ngành, nếu không thì dùng trung vị thị trường của những mã đang có số liệu.</p>',false);
+  }
+  const gi=c.items.filter(x=>/^(Sinh lời|Tăng trưởng)$/.test(x.k));
+  if(tab==="eq"){
+    const g=gi.length?acc("growth","Sinh lời và tăng trưởng",firstSent(gi[0].text,70),itemRows(gi),!!(s.brk&&s.brk.distorted),gi.some(x=>x.tone==="bad")?"bad":gi.every(x=>x.tone==="good")?"good":"ok"):"";
+    return breakBanner(s)+(E?eqCard(s):fin?reportBlock(s):'<div class="'+card+' p-4 text-sm text-muted">Chưa có báo cáo tài chính để bóc tách lợi nhuận.</div>')+g;
+  }
+  if(tab==="fin"){
+    const fi=c.items.filter(x=>/^(Tài chính|Hiệu quả và rủi ro|Đòn bẩy)$/.test(x.k));
+    const qr=qualityRows(s),ng=qr.filter(r=>r.tone==="good").length,nb=qr.filter(r=>r.tone==="bad").length;
+    return(fi.length?acc("finsum","Tóm tắt tài chính",firstSent(fi[0].text,70),itemRows(fi),true,fi.some(x=>x.tone==="bad")?"bad":fi.every(x=>x.tone==="good")?"good":"ok"):"")+
+      (s.hasFin?acc("qual","Chỉ số chất lượng",ng+" tốt · "+nb+" yếu",'<div class="divide-y divide-line">'+qr.map(r=>'<div class="flex items-center justify-between py-2 text-sm"><span>'+r.label+'</span><span class="flex items-center gap-2"><span class="font-mono">'+r.value+'</span><span class="w-10 rounded px-1.5 py-0.5 text-center text-[10px] font-semibold '+TONEC[r.tone]+'">'+r.tag+'</span></span></div>').join("")+'</div><p class="mt-2 text-xs text-muted">Vốn hóa '+fTy(s.mcap)+' · EPS '+(s.eps==null?"—":vnd(s.eps))+' · giá sổ sách '+(s.bvps==null?"—":vnd(s.bvps))+'. Số cổ phiếu ước tính bằng vốn góp chia mệnh giá 10.000đ nên có thể lệch với doanh nghiệp đã phát hành thêm theo cách khác.</p>',false):"")+
+      (fin?"":reportBlock(s))+ratioCard(s).replace(" mt-4 p-4"," p-4");
+  }
+  if(tab==="tech"){
+    if(!s.hasPx||!s.trend)return'<div class="'+card+' p-4 text-sm text-muted">Chưa có giá lịch sử của '+s.t+'.</div>';
+    const t=readTech(s),x=crossRead(v.verdict,s.trend,s.rsi),bias={up:"bg-up-soft text-up",down:"bg-down-soft text-down",flat:"bg-line text-muted"}[t.bias];
+    return'<div class="'+card+' p-4"><span class="rounded-md px-2.5 py-1 text-xs font-semibold '+bias+'">'+TREND_LABEL[s.trend||"mixed"]+'</span><h2 class="mt-2 font-semibold">'+esc(t.title)+'</h2><p class="mt-1 text-sm">'+esc(t.summary)+'</p>'+
+      '<dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">'+[["RSI 14",nv(s.rsi,0)+" · "+t.rsiLabel],["MACD",t.macdLabel],["Khối lượng",t.volumeLabel],["Vùng giá",t.levelLabel]].map(r=>'<div><dt class="text-xs text-muted">'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>').join("")+'</dl><button type="button" data-step="3" class="mt-3 '+BTN+'">Xem biểu đồ →</button></div>'+
+      '<div class="'+card+' p-4"><div class="text-xs text-muted">Đọc chéo với định giá ('+v.verdictLabel+')</div><h2 class="font-semibold">'+esc(x.title)+'</h2><p class="mt-1 text-sm">'+esc(x.body)+'</p></div>';
+  }
+  return"";
+}
 function viewValue(){
   const s=D.sel&&SMAP.get(D.sel),v0=$("view");
   if(!STOCKS.length){v0.innerHTML=emptyData();return;}
   if(!s){v0.innerHTML=picker(null)+noStock();return;}
-  const v=val(s),m=referenceMultiples(s.sector),x=crossRead(v.verdict,s.trend,s.rsi);
-  v0.innerHTML=picker(s)+stockHead(s)+breakBanner(s)+
-  '<div class="mt-4 grid gap-4 lg:grid-cols-5"><div class="min-w-0 space-y-4 lg:col-span-3">'+
-  '<div class="'+card+' p-4"><div class="flex flex-wrap items-center gap-3"><span class="rounded-md px-3 py-1.5 text-sm font-semibold '+VERD_CL[v.verdict]+'">'+v.verdictLabel+'</span>'+
-   (v.fair!=null?'<div class="font-mono text-sm">Giá hợp lý <b>'+vnd(v.fair)+'</b> · biên an toàn '+signedPct(v.mos,0)+' · '+(v.upside>=0?"dư địa ":"cao hơn ")+signedPct(v.upside,0)+'</div>':'')+'</div>'+meter(s,v)+'<p class="mt-2 text-sm">'+esc(v.narrative)+'</p></div>'+
-  eqCard(s)+conclusionCard(s,v)+'<div class="'+card+' p-4"><h2 class="font-semibold">Các mô hình</h2><div class="mt-2 divide-y divide-line">'+v.models.map(md=>'<div class="py-2.5"><div class="flex items-baseline justify-between gap-2"><span class="text-sm font-medium">'+md.name+' <span class="text-xs font-normal text-muted">trọng số '+nv(md.weight*100,0)+'%</span></span><span class="font-mono text-sm '+(md.counted?"":"text-muted")+'">'+(md.fair==null?"—":vnd(md.fair))+'</span></div><p class="text-xs text-muted">'+(md.counted?'<span class="text-up">Được tính.</span> ':'<span>Không tính.</span> ')+esc(md.note)+'</p></div>').join("")+'</div>'+
-   '<div class="mt-3 rounded-md bg-paper p-3"><div class="flex items-center justify-between text-sm"><label for="disc">Suất chiết khấu (cho Gordon)</label><span class="font-mono" id="discV">'+nv(D.discount*100,0)+'%</span></div><input id="disc" type="range" min="8" max="16" step="1" value="'+Math.round(D.discount*100)+'"/>'+
-   '<label class="mt-1 block text-xs text-muted">Tăng trưởng dài hạn g (%), để trống nếu muốn tự động<input id="gro" type="number" inputmode="decimal" step="0.5" value="'+(D.growth==null?"":D.growth)+'" class="mt-1 w-full rounded-md border border-line bg-card px-3 py-2 text-sm text-ink"/></label></div>'+
-   '<p class="mt-2 text-xs text-muted">Bội số tham chiếu: P/E '+nv(m.pe,1)+'× ('+m.peScope+'), P/B '+nv(m.pb,1)+'× ('+m.pbScope+'). Ngành chỉ được dùng khi có ít nhất 5 mã cùng ngành, nếu không thì dùng trung vị thị trường của những mã đang có số liệu.</p></div>'+
-  '<div class="'+card+' p-4"><h2 class="font-semibold">'+esc(x.title)+'</h2><p class="mt-1 text-sm">'+esc(x.body)+'</p>'+(s.hasPx?'<button type="button" data-step="3" class="mt-3 '+BTN+'">Xem kỹ thuật →</button>':'')+'</div>'+
-  '</div><div class="min-w-0 space-y-4 lg:col-span-2"><div class="'+card+' p-4"><h2 class="font-semibold">Chất lượng</h2><div class="mt-2 divide-y divide-line">'+qualityRows(s).map(r=>'<div class="flex items-center justify-between py-2 text-sm"><span>'+r.label+'</span><span class="flex items-center gap-2"><span class="font-mono">'+r.value+'</span><span class="w-10 rounded px-1.5 py-0.5 text-center text-[10px] font-semibold '+(r.tone==="good"?"bg-up-soft text-up":r.tone==="bad"?"bg-down-soft text-down":r.tone==="ok"?"bg-brass-soft text-brass":"bg-line text-muted")+'">'+r.tag+'</span></span></div>').join("")+'</div>'+
-   '<p class="mt-2 text-xs text-muted">Vốn hóa '+fTy(s.mcap)+' · EPS '+(s.eps==null?"—":vnd(s.eps))+' · giá sổ sách '+(s.bvps==null?"—":vnd(s.bvps))+'. Số cổ phiếu ước tính bằng vốn góp chia mệnh giá 10.000đ nên có thể lệch với doanh nghiệp đã phát hành thêm theo cách khác.</p></div>'+reportBlock(s)+'</div></div>'+ratioCard(s);scrollRatios();
+  if(VT.key!==s.t){VT.key=s.t;VT.tab=null;VT.open={};}
+  const v=val(s),c=conclude(s,v),E=s.eq;
+  let tab=VT.tab;
+  if(tab===null)tab=(E&&(E.tone==="bad"||E.dis))?"eq":(s.q&&s.q.cao>=2)?"fin":s.fin?"note":"val";
+  VT.shown=tab;const T=vTiles(s,v,E,c),KP=vKeyPoints(s,v,E,c);
+  const tile=x=>'<button type="button" data-vtab="'+x.id+'" aria-pressed="'+(tab===x.id)+'" class="min-w-0 rounded-lg border p-3 text-left '+(x.id==="note"?'col-span-2 sm:col-span-1 ':'')+(tab===x.id?'border-ink bg-paper':'border-line bg-card')+'"><span class="flex items-center gap-1.5 text-[11px] text-muted"><i class="h-2 w-2 shrink-0 rounded-full '+DOT[x.tone]+'"></i><span class="truncate">'+esc(x.label)+'</span></span><span class="mt-1 block text-base font-semibold leading-tight '+TXT[x.tone]+'">'+esc(x.val)+'</span><span class="mt-0.5 block text-[11px] leading-snug text-muted">'+esc(x.sub)+'</span></button>';
+  const head='<div class="'+card+' p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-xs font-medium uppercase tracking-wide text-muted">Phiếu khám</div><h2 class="mt-0.5 text-lg font-semibold leading-snug">'+esc(c.head)+'</h2></div><span class="shrink-0 rounded px-2 py-0.5 text-xs font-semibold '+TONEC[c.tone]+'">'+(c.tone==="good"?"Thuận":c.tone==="bad"?"Thận trọng":c.tone==="ok"?"Cân nhắc":"—")+'</span></div>'+
+    '<p class="mt-1 text-sm">'+esc(c.why)+'</p>'+(v.fair!=null?'<p class="mt-2 font-mono text-xs text-muted">Giá hợp lý <b class="text-ink">'+vnd(v.fair)+'</b> · biên an toàn '+signedPct(v.mos,0)+' · '+(v.upside>=0?"dư địa ":"cao hơn ")+signedPct(v.upside,0)+'</p>':'')+
+    '<div id="vtiles" class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">'+T.map(tile).join("")+'</div>'+
+    (KP.length?'<div class="mt-3"><div class="text-xs font-semibold text-muted">Điều đáng chú ý</div><ul class="mt-1 space-y-1.5">'+KP.map(x=>'<li><button type="button" data-vopen="'+x.tab+'" class="flex w-full items-start gap-2 text-left text-sm"><i class="mt-1.5 h-2 w-2 shrink-0 rounded-full '+DOT[x.tone]+'"></i><span class="min-w-0">'+esc(x.t)+'</span></button></li>').join("")+'</ul></div>':'')+
+    (c.todo.length?'<details class="acc mt-3 border-t border-line pt-2" data-k="todo"'+(accOpen("todo",false)?' open':'')+'><summary class="flex cursor-pointer items-center justify-between py-1 text-xs font-semibold text-muted"><span>Cần kiểm tra thêm ('+c.todo.length+')</span>'+CHEV+'</summary><ul class="mt-1 list-disc space-y-1 pl-5 text-sm">'+c.todo.map(t=>'<li>'+esc(t)+'</li>').join("")+'</ul></details>':'')+
+    '<p class="mt-2 text-[11px] text-muted">Kết luận do quy tắc tự động rút ra từ số liệu, không phải khuyến nghị đầu tư.</p></div>';
+  v0.innerHTML=picker(s)+stockHead(s)+'<div class="mt-4 space-y-3">'+head+'<div id="vpanel" class="space-y-3">'+vPanel(s,v,E,c,tab)+'</div></div>';scrollRatios();
 }
 
 function ratioCard(s){
@@ -1358,6 +1703,7 @@ function closeSheet(){$("sheet").classList.add("hidden");document.body.style.ove
 const setF=(k,v)=>{D.F[k]=v;D.F.preset=matchPreset();saveDesk();};
 function matchPreset(){const d=defaultFilters(),F=D.F;const base=k=>k!=="query"&&k!=="preset";
   for(const p of PRESETS){const e=Object.assign(defaultFilters(),p.patch);if(Object.keys(d).filter(base).every(k=>JSON.stringify(e[k])===JSON.stringify(F[k])))return p.id;}return"custom";}
+document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.tagName==="DETAILS"&&d.dataset&&d.dataset.k)VT.open[d.dataset.k]=d.open;},true);
 document.addEventListener("click",e=>{
   const g=s=>e.target.closest(s);let x;
   if((x=g("[data-watch]"))){e.stopPropagation();const t=x.dataset.watch,i=D.watch.indexOf(t);if(i<0)D.watch.push(t);else D.watch.splice(i,1);saveDesk();if(D.step===1)renderRes();else renderView();return;}
@@ -1368,6 +1714,8 @@ document.addEventListener("click",e=>{
   if((x=g("[data-ex]"))){const a=D.F.exchanges,i=a.indexOf(x.dataset.ex);if(i<0)a.push(x.dataset.ex);else a.splice(i,1);D.more=true;setF("exchanges",a);viewScreen();return;}
   if((x=g("[data-sec]"))){const a=D.F.sectors,i=a.indexOf(x.dataset.sec);if(i<0)a.push(x.dataset.sec);else a.splice(i,1);D.more=true;setF("sectors",a);viewScreen();return;}
   if((x=g("[data-sort]"))){if(D.sortKey===x.dataset.sort)D.sortDir*=-1;else{D.sortKey=x.dataset.sort;D.sortDir=x.dataset.sort==="t"?1:-1;}saveDesk();renderRes();return;}
+  if((x=g("[data-vtab]"))){VT.tab=VT.shown===x.dataset.vtab?"":x.dataset.vtab;viewValue();return;}
+  if((x=g("[data-vopen]"))){VT.tab=x.dataset.vopen;viewValue();const t=$("vtiles");if(t)t.scrollIntoView({behavior:"smooth",block:"start"});return;}
   if((x=g("[data-zoom]"))){if(!CH.s)return;const Wn=chartWin(CH.s.bars);if(x.dataset.zoom==="reset"){chartReset();redraw();}else chartZoomTo(Math.round(Wn.nb*(x.dataset.zoom==="in"?1/1.4:1.4)),1);return;}
   if((x=g("[data-range]"))){D.range=x.dataset.range;chartReset();saveDesk();if(CH.s)redraw();else viewTech();return;}
   if((x=g("[data-candle]"))){D.candle=x.dataset.candle;D.range=CHART_DEF[D.candle];chartReset();saveDesk();viewTech();return;}
