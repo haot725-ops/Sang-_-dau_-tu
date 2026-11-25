@@ -23,6 +23,8 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import logging
+import math
+import re
 import sys
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -80,9 +82,11 @@ class SourceError(Exception):
 
 
 def _num(x: Any) -> float | None:
+    if isinstance(x, bool):
+        return None
     try:
         v = float(x)
-        return v if v == v else None
+        return v if math.isfinite(v) else None
     except (TypeError, ValueError):
         return None
 
@@ -93,12 +97,18 @@ def normalize_bars(rows: list[dict]) -> dict[str, list]:
     for r in rows:
         o, h, l, c, v = (_num(r.get(k)) for k in "ohlcv")
         d = str(r.get("d") or "")[:10]
-        if not d or c is None or c <= 0:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) or any(x is None for x in (o, h, l, c, v)):
             continue
-        o = o or c
-        h = max(x for x in (h, o, c) if x is not None)
-        l = min(x for x in (l, o, c) if x is not None and x > 0)
-        clean[d] = {"o": o, "h": h, "l": l, "c": c, "v": v or 0.0}
+        try:
+            date.fromisoformat(d)
+        except ValueError:
+            continue
+        if min(o, h, l, c) <= 0 or v < 0 or h < max(o, c, l) or l > min(o, c, h):
+            continue
+        bar = {"o": o, "h": h, "l": l, "c": c, "v": v}
+        if d in clean and clean[d] != bar:
+            raise SourceError(f"ngày giá bị trùng nhưng OHLCV khác nhau: {d}")
+        clean[d] = bar
     days = sorted(clean)[-KEEP:]
     if days and max(clean[d]["c"] for d in days) < 500:   # giá nguồn trả theo nghìn đồng (vd 128.5) -> đồng
         for d in days:
@@ -179,7 +189,8 @@ def fetch_prices(sym: str, session: requests.Session, status: dict) -> dict | No
             st["fail"] += 1
             st["last_error"] = f"{sym}: {type(e).__name__}: {e}"[:200]
             log.warning("%s nguồn %s lỗi: %s", sym, name, e)
-        time.sleep(0.5)
+        if name != "vietcap":
+            time.sleep(0.5)
     return None
 
 
@@ -255,17 +266,17 @@ def main(argv: list[str] | None = None) -> int:
         if a.only != "prices":
             try:
                 data = cafef_fetch.fetch_ticker(t, report_sector(t, cfg.get(t)), session)
-                (a.out / f"{t}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+                cafef_fetch.atomic_json_write(a.out / f"{t}.json", data)
                 status["bctc"]["ok"] += 1
                 done += 1
-            except cafef_fetch.FetchError as e:
+            except Exception as e:
                 status["bctc"]["fail"] += 1
                 status["bctc"]["errors"].append(str(e)[:200])
                 log.error("BCTC %s lỗi, giữ dữ liệu cũ: %s", t, e)
         if a.only != "bctc":
             p = fetch_prices(t, session, status)
             if p:
-                (a.out / "prices" / f"{t}.json").write_text(json.dumps(p, separators=(",", ":")), encoding="utf-8")
+                cafef_fetch.atomic_json_write(a.out / "prices" / f"{t}.json", p)
                 log.info("%s: %d phiên giá từ %s", t, len(p["d"]), p["src"])
                 done += 1
             else:
@@ -285,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
                 t = futures[future]
                 try:
                     data = future.result()
-                    (a.out / f"{t}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+                    cafef_fetch.atomic_json_write(a.out / f"{t}.json", data)
                     status["bctc"]["ok"] += 1
                     status["universe_batch"]["ok"] += 1
                     done += 1
@@ -300,17 +311,18 @@ def main(argv: list[str] | None = None) -> int:
                     log.error("Bỏ qua universe %s, giữ dữ liệu cũ: %s", t, e)
     if a.universe_batch:
         cursor_path.parent.mkdir(parents=True, exist_ok=True)
-        cursor_path.write_text(json.dumps({"next_shard": (shard_index + 1) % shard_count,
-                                           "last_shard": shard_index % shard_count,
-                                           "shards": shard_count,
-                                           "updated_at": status["run_at"]}, ensure_ascii=False, indent=2), encoding="utf-8")
         retry_next = list(dict.fromkeys(failed_universe + deferred_retries))
-        retry_path.write_text(json.dumps(retry_next, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Ghi retry queue trước; cursor là checkpoint cuối cùng để crash không làm rơi retry.
+        cafef_fetch.atomic_json_write(retry_path, retry_next, indent=2)
+        cafef_fetch.atomic_json_write(cursor_path, {"next_shard": (shard_index + 1) % shard_count,
+                                                   "last_shard": shard_index % shard_count,
+                                                   "shards": shard_count,
+                                                   "updated_at": status["run_at"]}, indent=2)
         status["universe_batch"]["retry_next_run"] = len(retry_next)
 
     have_f = sorted(p.stem for p in a.out.glob("*.json") if p.stem not in ("index", "status"))
     have_p = sorted(p.stem for p in (a.out / "prices").glob("*.json"))
-    (a.out / "index.json").write_text(json.dumps({"tickers": have_f, "prices": have_p, "updated": status["run_at"]}, ensure_ascii=False), encoding="utf-8")
+    cafef_fetch.atomic_json_write(a.out / "index.json", {"tickers": have_f, "prices": have_p, "updated": status["run_at"]})
     status_path = a.out / "status.json"
     if a.merge_status and status_path.exists():
         try:
@@ -326,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
                 status["core_run_at"] = previous.get("run_at")
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             log.warning("Không thể gộp status lượt trước; ghi status batch hiện tại")
-    status_path.write_text(json.dumps(status, ensure_ascii=False, indent=1), encoding="utf-8")
+    cafef_fetch.atomic_json_write(status_path, status, indent=1)
     return 0 if done else 1   # chỉ báo lỗi khi không lấy được gì, để Action vẫn lưu phần đã lấy
 
 

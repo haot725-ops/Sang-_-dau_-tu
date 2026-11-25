@@ -83,8 +83,8 @@ const dmy=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||"");return m?m[3]+"."+m
 const dm=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||"");return m?m[3]+"."+m[2]:"—";};
 
 /* ---------- Số liệu CafeF: soi bẫy theo ngành, thay đổi theo quý, điểm chất lượng ---------- */
-const pn=p=>{const m=/^Q(\d)-(\d{4})$/.exec(String(p));return m?(+m[2])*4+(+m[1]):null;};
-const pL=p=>{const m=/^Q(\d)-(\d{4})$/.exec(String(p));return m?"Q"+m[1]+"/"+m[2]:String(p);};
+const pn=p=>{const m=/^Q([1-4])-(\d{4})$/.exec(String(p));return m&&+m[2]>=1900&&+m[2]<=2100?(+m[2])*4+(+m[1]):null;};
+const pL=p=>{const m=/^Q([1-4])-(\d{4})$/.exec(String(p));return pn(p)!=null?"Q"+m[1]+"/"+m[2]:String(p);};
 const ty=v=>v==null?"—":nv(v/1e9,Math.abs(v)<1e11?1:0)+" tỷ";
 const pc=x=>x==null?"—":nv(x*100,1)+"%";
 /* Chỉ tiêu: [báo cáo, các mã theo TT200, regex tên dự phòng khi mã khác]. Dò mã trước, không thấy mới dò tên. */
@@ -105,10 +105,11 @@ function finNorm(o){
   const f={t:o.ticker.toUpperCase(),sector:["bds","chung","nganhang","ck"].includes(o.sector)?o.sector:"chung",at:String(o.fetched_at||"").slice(0,10),cache:{}};
   for(const k of["bs","is","cf"]){
     const r=o[k];if(!r||!Array.isArray(r.periods)||!Array.isArray(r.items)||!r.periods.length||r.periods.length>40)return null;
-    const per=r.periods.map(String);if(per.some(p=>pn(p)==null))return null;
+    const per=r.periods.map(String);if(per.some(p=>pn(p)==null)||new Set(per).size!==per.length)return null;
+    if(r.items.some(x=>!x||typeof x!=="object"||!Array.isArray(x.values)||x.values.length!==per.length||x.values.some(v=>v!=null&&(typeof v!=="number"||!Number.isFinite(v)))))return null;
     const order=per.map((p,i)=>i).sort((a,b)=>pn(per[a])-pn(per[b])),idx={};order.forEach((oi,i)=>{idx[per[oi]]=i;});
-    f[k]={per:order.map(i=>per[i]),idx,items:r.items.slice(0,400).filter(x=>x&&typeof x==="object").map(x=>({c:String(x.code==null?"":x.code).slice(0,30),n:String(x.name||"").slice(0,200),lv:Math.min(+x.lv||0,5),g:!!x.group,
-      v:order.map(i=>{const q=Array.isArray(x.values)?x.values[i]:null;return typeof q==="number"&&isFinite(q)?q:null;})}))};
+    f[k]={per:order.map(i=>per[i]),idx,items:r.items.slice(0,400).map(x=>({c:String(x.code==null?"":x.code).slice(0,30),n:String(x.name||"").slice(0,200),lv:Math.min(+x.lv||0,5),g:!!x.group,
+      v:order.map(i=>x.values[i]==null?null:x.values[i])}))};
   }
   f.per=f.is.per;f.last=f.per[f.per.length-1];f.cfMode=finCfMode(f);return f;
 }
@@ -267,18 +268,30 @@ function finWorker(){try{const w=(localStorage.getItem("sang.worker")||"").trim(
 function finBuild(sym,raw){
   const o={ticker:sym,sector:finSecOf(sym),unit:"VND",fetched_at:new Date().toISOString(),source:"cafef.vn"};
   for(const k of["bs","is","cf"]){
-    const js=raw&&raw[k];if(!js||js.isSuccess===false||!js.value)throw new Error("CafeF không trả dữ liệu ("+k+")");
-    const v=js.value,by={};
-    const ing=a=>(Array.isArray(a)?a:[]).forEach(ky=>{const key=String(ky.time),b=by[key]||(by[key]={});(Array.isArray(ky.data)?ky.data:[]).forEach(it=>{if(it&&typeof it.value==="number"&&isFinite(it.value))b[String(it.code)]=it.value;});});
-    if(FEP[k][2])(Array.isArray(v.data)?v.data:[]).forEach(g=>ing(g&&g.data));else ing(v.data);
-    const per=Object.keys(by).filter(p=>pn(p)!=null).sort((a,b)=>pn(a)-pn(b));
+    const js=raw&&raw[k];if(!js||js.isSuccess!==true||!js.value)throw new Error("CafeF không trả dữ liệu ("+k+")");
+    const v=js.value,by=Object.create(null);
+    if(!v||typeof v!=="object"||!Array.isArray(v.data)||!Array.isArray(v.templace)||!v.templace.length)throw new Error("CafeF sai schema báo cáo ("+k+")");
+    const ing=a=>{if(!Array.isArray(a))throw new Error("CafeF sai schema kỳ ("+k+")");for(const ky of a){
+      if(!ky||typeof ky!=="object")throw new Error("CafeF sai schema kỳ ("+k+")");
+      const key=String(ky.time||"");if(pn(key)==null)throw new Error("CafeF trả kỳ quý sai định dạng ("+k+")");
+      if(!Array.isArray(ky.data))throw new Error("CafeF thiếu chỉ tiêu kỳ "+key);
+      const b=by[key]||(by[key]=Object.create(null));
+      for(const it of ky.data){if(!it||typeof it!=="object")throw new Error("CafeF trả dòng chỉ tiêu sai schema ("+k+")");
+        if(it.value==null)continue;if(typeof it.value!=="number"||!Number.isFinite(it.value))throw new Error("CafeF trả giá trị không hữu hạn ("+k+")");
+        const code=String(it.code==null?"":it.code);if(!code)throw new Error("CafeF thiếu mã chỉ tiêu ("+k+")");
+        if(Object.prototype.hasOwnProperty.call(b,code)&&b[code]!==it.value)throw new Error("CafeF trả mã chỉ tiêu xung đột tại kỳ "+key+" ("+k+")");b[code]=it.value;
+      }
+    }};
+    if(FEP[k][2])for(const g of v.data){if(!g||typeof g!=="object")throw new Error("CafeF sai schema nhóm ("+k+")");ing(g.data||[]);}else ing(v.data);
+    const per=Object.keys(by).sort((a,b)=>pn(a)-pn(b));
     if(!per.length)throw new Error("Không có số liệu theo quý cho mã "+sym);
     const tm=[],flat=(ns,d)=>(Array.isArray(ns)?ns:[]).forEach(n=>{const ch=Array.isArray(n.data)?n.data:[];tm.push({c:String(n.code==null?"":n.code),n:String(n.name||""),lv:d,g:ch.length>0});if(ch.length)flat(ch,d+1);});
-    flat(v.templace,0);
+    flat(v.templace,0);if(!tm.length)throw new Error("CafeF thiếu danh mục chỉ tiêu ("+k+")");
     const known=new Set(tm.map(x=>x.c)),extra=new Set();
     per.forEach(p=>Object.keys(by[p]).forEach(c=>{if(!known.has(c))extra.add(c);}));
     extra.forEach(c=>tm.push({c,n:"",lv:0,g:false}));
     o[k]={periods:per,items:tm.map(x=>({code:x.c,name:x.n,lv:x.lv,group:x.g,values:per.map(p=>by[p][x.c]!=null?by[p][x.c]:null)})).filter(x=>x.group||x.values.some(q=>q!=null))};
+    if(!o[k].items.some(x=>!x.group&&x.values.some(q=>q!=null)))throw new Error("CafeF không có dòng dữ liệu hợp lệ ("+k+")");
   }
   return o;
 }
@@ -335,6 +348,11 @@ const META={};META_LIST.forEach(m=>{META[m.t]=m;});
 const FIN_LABELS=["Ngân hàng","Chứng khoán"];
 let FINS={},RAW={},PX={},LIVE={},USER={},STATUS=null,INDEX=null,STOCKS=[],SMAP=new Map(),UNIVERSE={},UNIVERSE_INFO=null;
 const DATA_BASE="./data/";
+const FIN_CACHE_MAX_AGE=9*864e5,PX_CACHE_MAX_AGE=36*3600e3;
+const dataFresh=(at,maxAge)=>{const ts=Date.parse(at||"");return Number.isFinite(ts)&&ts<=Date.now()+5*60e3&&Date.now()-ts<=maxAge;};
+const finStamp=t=>RAW[t]?.fetched_at||USER[t]?.raw?.fetched_at||"";
+const pxStamp=t=>PX[t]?.fetchedAt||USER[t]?.px?.fetchedAt||"";
+function incomingWins(oldStamp,newStamp){const a=Date.parse(oldStamp||""),b=Date.parse(newStamp||"");if(Number.isFinite(a)&&(!Number.isFinite(b)||a>b))return false;if(!Number.isFinite(a)&&!Number.isFinite(b))return false;return true;}
 
 async function loadUniverse(){
   const u=await getJson("./universe.json");
@@ -344,9 +362,18 @@ async function loadUniverse(){
   return Object.keys(UNIVERSE).length>0;
 }
 
-function pxOk(p){return p&&typeof p==="object"&&Array.isArray(p.d)&&p.d.length>=30&&["o","h","l","c","v"].every(k=>Array.isArray(p[k])&&p[k].length===p.d.length)&&p.c.every(x=>typeof x==="number"&&x>0);}
+function pxOk(p){
+  if(!p||typeof p!=="object"||!Array.isArray(p.d)||p.d.length<30||!["o","h","l","c","v"].every(k=>Array.isArray(p[k])&&p[k].length===p.d.length))return false;
+  for(let i=0;i<p.d.length;i++){
+    const d=p.d[i];if(typeof d!=="string"||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d)||(i&&d<=p.d[i-1]))return false;
+    const dt=new Date(d+"T00:00:00Z");if(!Number.isFinite(dt.getTime())||dt.toISOString().slice(0,10)!==d)return false;
+    const [o,h,l,c,v]=[p.o[i],p.h[i],p.l[i],p.c[i],p.v[i]];
+    if(![o,h,l,c,v].every(Number.isFinite)||Math.min(o,h,l,c)<=0||v<0||h<Math.max(o,c,l)||l>Math.min(o,c,h))return false;
+  }
+  return true;
+}
 function ingestFin(o,keep){
-  const f=finNorm(o);if(!f)return false;const kd0=kindOf(f.t,o);if(kd0){f.sector=kd0;f.cache={};}
+  const f=finNorm(o);if(!f)return false;if(FINS[f.t]&&!incomingWins(finStamp(f.t),o.fetched_at))return false;const kd0=kindOf(f.t,o);if(kd0){f.sector=kd0;f.cache={};}
   const tr=trimRaw(o,f),f2=finNorm(tr);if(!f2)return false;
   const kd=kindOf(f2.t,o);if(kd){f2.sector=kd;f2.cache={};}else{const sv=finSecOv(f2.t);if(sv)f2.sector=sv;else if(f2.sector==="nganhang"||f2.sector==="ck")f2.sector="chung";f2.cache={};}
   f2.at=f.at;FINS[f2.t]=f2;RAW[f2.t]=tr;
@@ -362,8 +389,8 @@ function trimRaw(o,f){       /* chỉ giữ những dòng mà app dùng để t�
   return out;
 }
 function ingestPx(t,p,keep){
-  if(!pxOk(p))return false;
-  PX[t]={d:p.d.slice(-260),o:p.o.slice(-260),h:p.h.slice(-260),l:p.l.slice(-260),c:p.c.slice(-260),v:p.v.slice(-260),src:String(p.src||""),asof:p.d[p.d.length-1]};
+  if(!pxOk(p)||PX[t]&&!incomingWins(pxStamp(t),p.fetched_at||p.fetchedAt))return false;
+  PX[t]={d:p.d.slice(-260),o:p.o.slice(-260),h:p.h.slice(-260),l:p.l.slice(-260),c:p.c.slice(-260),v:p.v.slice(-260),src:String(p.src||""),asof:p.d[p.d.length-1],fetchedAt:String(p.fetched_at||p.fetchedAt||"")};
   if(keep)(USER[t]=USER[t]||{}).px=PX[t];
   return true;
 }
@@ -391,17 +418,22 @@ async function loadFiles(){
 }
 async function loadStoredOne(t){
   let loaded=false;
-  if(!FINS[t]){const o=await getJson(DATA_BASE+t+".json");if(o)loaded=ingestFin(o,false)||loaded;}
-  if(!PX[t]){const p=await getJson(DATA_BASE+"prices/"+t+".json");if(p)loaded=ingestPx(t,p,false)||loaded;}
+  const [o,p]=await Promise.all([getJson(DATA_BASE+t+".json"),getJson(DATA_BASE+"prices/"+t+".json")]);
+  if(o)loaded=ingestFin(o,false)||loaded;
+  if(p)loaded=ingestPx(t,p,false)||loaded;
   if(loaded)rebuild();
   return loaded;
 }
-async function selectStock(t){
-  D.sel=t;go(2);
+async function selectStock(t,switchStep=true){
+  D.sel=t;if(switchStep)go(2);else renderAll();
   await loadStoredOne(t);
-  const s=SMAP.get(t);
-  if(s&&!s.hasFin&&!s.hasPx)addMany([t]);
-  else renderAll();
+  if(D.sel!==t){renderAll();return;}
+  const s=SMAP.get(t),needFin=!s||!s.hasFin||!dataFresh(finStamp(t),FIN_CACHE_MAX_AGE),needPx=!s||!s.hasPx||!dataFresh(pxStamp(t),PX_CACHE_MAX_AGE);
+  if(!needFin&&!needPx){renderAll();return;}
+  if(BUSY){pendingStock=t;toast("Đang lấy dữ liệu, mã sẽ được làm mới sau lượt hiện tại");renderAll();return;}
+  if(STOCK_REFRESH.has(t)){await STOCK_REFRESH.get(t);renderAll();return;}
+  const job=(async()=>{try{await addOne(t,needFin,needPx);saveUser();rebuild();}catch(e){toast(t+" · chưa làm mới được: "+String(e&&e.message||e).slice(0,130));}})();
+  STOCK_REFRESH.set(t,job);try{await job;}finally{STOCK_REFRESH.delete(t);}renderAll();
 }
 
 /* =================== Worker và nạp theo yêu cầu =================== */
@@ -416,19 +448,20 @@ async function directPx(t){   /* không có Worker: thử gọi thẳng VNDirect
   const start=new Date(Date.now()-430*864e5).toISOString().slice(0,10);
   const r=await fetch("https://finfo-api.vndirect.com.vn/v4/stock_prices?sort=date&size=280&q="+encodeURIComponent("code:"+t+"~date:gte:"+start));
   if(!r.ok)throw new Error("VNDirect trả lỗi "+r.status);const js=await r.json();
-  const rows=(js.data||[]).map(x=>({d:x.date,o:x.open,h:x.high,l:x.low,c:x.close,v:x.nmVolume??x.volume})).filter(x=>x.d&&x.c>0).sort((a,b)=>a.d<b.d?-1:1);
+  const rows=(js.data||[]).map(x=>({d:String(x.date||"").slice(0,10),o:Number(x.open),h:Number(x.high),l:Number(x.low),c:Number(x.close),v:(x.nmVolume??x.volume)==null?NaN:Number(x.nmVolume??x.volume)})).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x.d)&&[x.o,x.h,x.l,x.c,x.v].every(Number.isFinite)&&Math.min(x.o,x.h,x.l,x.c)>0&&x.v>=0&&x.h>=Math.max(x.o,x.c,x.l)&&x.l<=Math.min(x.o,x.c,x.h)).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
   const k=rows.length&&Math.max(...rows.map(x=>x.c))<500?1000:1;
-  return{d:rows.map(x=>x.d),o:rows.map(x=>(x.o||x.c)*k),h:rows.map(x=>(x.h||x.c)*k),l:rows.map(x=>(x.l||x.c)*k),c:rows.map(x=>x.c*k),v:rows.map(x=>x.v||0),src:"vndirect"};
+  return{d:rows.map(x=>x.d),o:rows.map(x=>x.o*k),h:rows.map(x=>x.h*k),l:rows.map(x=>x.l*k),c:rows.map(x=>x.c*k),v:rows.map(x=>x.v),src:"vndirect",fetched_at:new Date().toISOString()};
 }
-async function addOne(t){
+async function addOne(t,needFin=true,needPx=true){
   const errs=[];let gotF=false,gotP=false;
-  try{const raw=wk()?await wkGet("/?symbol="+encodeURIComponent(t)):await finFetchRaw(t);
-    const o=finBuild(t,raw);if(META[t]){o.sector=finSecOf(t);}gotF=ingestFin(o,true);}catch(e){errs.push("Báo cáo: "+finErr(e));}
-  try{const p=wk()?await wkGet("/history?symbol="+encodeURIComponent(t)):await directPx(t);gotP=ingestPx(t,p,true);if(!gotP)throw new Error("giá không đủ phiên");}catch(e){errs.push("Giá: "+(e&&e.name==="TypeError"?"bị chặn CORS, cần Worker":((e&&e.message)||e)));}
+  if(needFin)try{const raw=wk()?await wkGet("/?symbol="+encodeURIComponent(t)):await finFetchRaw(t);
+    const o=finBuild(t,raw);if(META[t])o.sector=finSecOf(t);gotF=ingestFin(o,true);if(!gotF)throw new Error("BCTC sai schema hoặc kỳ cũ hơn");}catch(e){errs.push("Báo cáo: "+finErr(e));}
+  if(needPx)try{const p=wk()?await wkGet("/history?symbol="+encodeURIComponent(t)):await directPx(t);if(p&&!p.fetched_at&&!p.fetchedAt)p.fetched_at=new Date().toISOString();gotP=ingestPx(t,p,true);if(!gotP)throw new Error("OHLCV sai cấu trúc hoặc không đủ phiên");}catch(e){errs.push("Giá: "+(e&&e.name==="TypeError"?"bị chặn CORS, cần Worker":((e&&e.message)||e)));}
   if(!gotF&&!gotP)throw new Error(errs.join(" · "));
   if(errs.length)toast(t+": "+errs.join(" · "));
 }
-let BUSY=false;
+let BUSY=false,pendingStock=null;
+const STOCK_REFRESH=new Map();
 async function addMany(arr){
   const L=[...new Set(arr.map(s=>String(s).toUpperCase().trim()).filter(s=>/^[A-Z0-9]{2,10}$/.test(s)))];
   if(!L.length){toast("Mã không hợp lệ");return;}
@@ -439,6 +472,7 @@ async function addMany(arr){
   await Promise.all([run(),run()]);
   BUSY=false;hideProg();saveUser();rebuild();renderAll();
   toast(bad.length?("Lỗi "+bad.length+"/"+total+" mã. "+bad[0]).slice(0,170):"Đã thêm "+total+" mã");
+  if(pendingStock){const t=pendingStock;pendingStock=null;if(D.sel===t)selectStock(t,false);}
 }
 function showProg(p,t){let e=$("prog");if(!e){e=document.createElement("div");e.id="prog";e.className="fixed inset-x-0 top-0 z-[80] bg-ink px-4 py-2 text-xs text-paper";e.innerHTML='<div class="mx-auto max-w-7xl"><span id="progTx"></span><div class="mt-1 h-1 rounded bg-paper/30"><i id="progBar" class="block h-1 rounded bg-brass-soft" style="width:0"></i></div></div>';document.body.appendChild(e);}
   e.hidden=false;$("progTx").textContent=t;$("progBar").style.width=Math.round(p)+"%";}
@@ -1147,8 +1181,15 @@ function conclusionCard(s,v){
 }
 function stockHead(s){
   const q=s.live&&LIVE[s.t],qAt=q&&q.at?new Date(q.at).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"}):"";
+  const stale=[];if(s.hasFin&&!dataFresh(finStamp(s.t),FIN_CACHE_MAX_AGE))stale.push("BCTC");if(s.hasPx&&!dataFresh(pxStamp(s.t),PX_CACHE_MAX_AGE))stale.push("giá lịch sử");
   return'<div class="'+card+' p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><h1 class="text-xl font-semibold">'+s.t+' <span class="text-base font-normal text-muted">'+esc(s.name)+'</span></h1><p class="text-xs text-muted">'+esc(s.full)+' · '+esc(s.exchange)+' · '+esc(s.sector)+'</p></div>'+
-  '<div class="sm:text-right"><div class="font-mono text-2xl">'+(s.price!=null?vnd(s.price):"—")+'</div><div class="font-mono text-sm '+chgCl(s.changePct)+'">'+(s.price!=null?signedPct(s.changePct):"")+'</div><div class="text-[11px] text-muted">'+(s.live?"Quote tham khảo · Worker lấy lúc "+qAt:s.asof?"Đóng cửa "+dmy(s.asof):"Chưa có giá")+'</div></div></div></div>';
+  '<div class="sm:text-right"><div class="font-mono text-2xl">'+(s.price!=null?vnd(s.price):"—")+'</div><div class="font-mono text-sm '+chgCl(s.changePct)+'">'+(s.price!=null?signedPct(s.changePct):"")+'</div><div class="text-[11px] text-muted">'+(s.live?"Quote tham khảo · Worker lấy lúc "+qAt:s.asof?"Đóng cửa "+dmy(s.asof):"Chưa có giá")+'</div></div></div>'+(stale.length?'<p class="mt-2 rounded bg-brass-soft px-3 py-2 text-xs text-brass">'+esc(stale.join(" và "))+' chưa được làm mới trong ngưỡng dự kiến; app giữ dữ liệu đã lưu và thử cập nhật khi chọn mã.</p>':'')+'</div>';
+}
+function reportPeriodNote(f){
+  if(!f)return"";const groups=[["bs","CĐKT"],["is","KQKD"],["cf","LCTT"]],sets=groups.map(([k])=>JSON.stringify(f[k]?.per||[]));
+  if(sets.every(x=>x===sets[0]))return"";
+  const detail=groups.map(([k,n])=>{const p=f[k]?.per||[];return n+": "+(p.length?esc(p[0])+"–"+esc(p[p.length-1])+" ("+p.length+" kỳ)":"thiếu kỳ");}).join(" · ");
+  return'<p class="mt-2 rounded bg-brass-soft px-3 py-2 text-xs text-brass">Các bảng không phủ cùng kỳ ('+detail+'). Phép tính chỉ dùng kỳ khớp; không tự nội suy dữ liệu thiếu.</p>';
 }
 function noStock(){return'<div class="'+card+' p-6 text-center text-sm text-muted">Chưa chọn mã nào. Về bước tầm soát để chọn một mã.</div>';}
 
@@ -1182,7 +1223,7 @@ function sectorReportBlock(s){
   if(!bank&&X.propRatio!=null)notes.push("Tài sản FVTPL bằng "+nv(X.propRatio,2)+" lần vốn chủ; tỷ lệ này không tự nó kết luận lãi/lỗ hay mức độ rủi ro.");
   const date=f&&f.at?" · cập nhật "+dmy(f.at):"";
   return'<div class="'+card+' p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold">Soi báo cáo · '+(bank?"Ngân hàng":"Công ty chứng khoán")+'</h2><span class="text-xs text-muted">Kỳ '+esc(p?pL(p):"—")+date+'</span></div>'+
-    '<p class="mt-2 text-sm">'+esc(summary)+'</p><div class="mt-3 grid gap-2 sm:grid-cols-2">'+(tiles||'<p class="text-sm text-muted">Chưa đủ dữ liệu để tính chỉ tiêu ngành.</p>')+'</div>'+
+    reportPeriodNote(f)+'<p class="mt-2 text-sm">'+esc(summary)+'</p><div class="mt-3 grid gap-2 sm:grid-cols-2">'+(tiles||'<p class="text-sm text-muted">Chưa đủ dữ liệu để tính chỉ tiêu ngành.</p>')+'</div>'+
     (notes.length?'<div class="mt-3 space-y-1">'+notes.map(x=>'<p class="text-xs text-muted">'+esc(x)+'</p>').join("")+'</div>':'')+
     '<p class="mt-3 text-[11px] text-muted">Nguồn: CafeF. Nhãn Tốt/Ổn/Yếu là tín hiệu sàng lọc nội bộ, không phải xếp hạng chính thức. BCTC hiện có không đủ để tính nợ xấu, CAR theo chuẩn NHNN hay NIM chuẩn; thu nhập lãi thuần/tổng tài sản và dự phòng/dư nợ chỉ là chỉ số tham khảo.</p></div>';
 }
@@ -1193,7 +1234,7 @@ function reportBlock(s){
   if(!q)return'<div class="'+card+' p-4"><h2 class="font-semibold">Soi báo cáo</h2><p class="mt-1 text-sm text-muted">Không đủ số liệu để chấm.</p></div>';
   const a=q.a,warn=a.c.filter(x=>x.lv==="cao"||x.lv==="tb");
   const bars=PIL.map(([k,l])=>{const p=q.P[k];return'<div><div class="flex justify-between text-xs"><span>'+l+'</span><span class="font-mono">'+(p==null?"—":nv(p,0))+'</span></div><div class="mt-1 h-1.5 rounded bg-line"><div class="h-1.5 rounded bg-brass" style="width:'+(p==null?0:p)+'%"></div></div></div>';}).join("");
-  return'<div class="'+card+' p-4"><div class="flex items-center justify-between gap-3"><h2 class="font-semibold">Soi báo cáo</h2><span class="text-xs text-muted">Kỳ '+esc(pL(s.fin.last))+(s.fin.at?' · cập nhật '+dmy(s.fin.at):'')+'</span></div>'+
+  return'<div class="'+card+' p-4"><div class="flex items-center justify-between gap-3"><h2 class="font-semibold">Soi báo cáo</h2><span class="text-xs text-muted">Kỳ '+esc(pL(s.fin.last))+(s.fin.at?' · cập nhật '+dmy(s.fin.at):'')+'</span></div>'+reportPeriodNote(s.fin)+
    (q.bank?'<p class="mt-2 rounded-md bg-brass-soft p-3 text-sm text-brass">Báo cáo ngân hàng có cấu trúc khác, các phép kiểm tra tự động chưa áp dụng. Chỉ dùng ROE, P/B và tăng trưởng ở trên.</p>':
    '<div class="mt-3 flex items-center gap-3"><span class="rounded-lg px-3 py-2 text-2xl font-semibold '+GRADE_CL[q.g]+'">'+(q.g==="N"?"–":q.g)+'</span><div class="text-sm"><div>'+(q.tot==null?"Chưa đủ dữ liệu để chấm điểm":"Điểm "+nv(q.tot,0)+"/100")+'</div><div class="text-xs text-muted">'+a.lab+' · '+q.cao+' cờ đỏ, '+q.tb+' lưu ý</div></div></div>'+
    '<div class="mt-3 grid gap-3 sm:grid-cols-2">'+bars+'</div>')+
@@ -1685,13 +1726,14 @@ function viewTech(){
 
 /* =================== Cài đặt và dữ liệu =================== */
 function openSheet(){
-  const sh=$("sheet"),ws=Object.keys(FINS).length,ps=Object.keys(PX).length,st=STATUS,keys=Object.keys(USER).length;
+  const sh=$("sheet"),ws=Object.keys(FINS).length,ps=Object.keys(PX).length,st=STATUS,keys=Object.keys(USER).length,
+    universeCount=UNIVERSE_INFO?.count||UNIVERSE_INFO?.stocks?.length||0,repoFin=Array.isArray(INDEX?.tickers)?INDEX.tickers.length:0,repoPx=Array.isArray(INDEX?.prices)?INDEX.prices.length:0;
   let stt='<p class="text-sm text-muted">Chưa có data/status.json. Chạy GitHub Action ở tab Actions của repo để tạo dữ liệu.</p>';
   if(st){const pr=st.prices||{},ub=st.universe_batch;stt='<p class="text-sm">Lần chạy gần nhất: <b>'+esc(String(st.run_at||"").replace("T"," ").slice(0,16))+'</b> (UTC)</p><p class="text-sm">Báo cáo: '+((st.bctc&&st.bctc.ok)||0)+' mã được, '+((st.bctc&&st.bctc.fail)||0)+' mã lỗi.</p>'+(ub?'<p class="text-xs text-muted">Lô universe '+(ub.index+1)+'/'+ub.count+': '+ub.ok+' mã được, '+ub.fail+' mã lỗi · '+ub.retry_next_run+' mã sẽ thử lại lượt sau.</p>':'')+
     '<ul class="mt-1 text-sm">'+Object.keys(pr).map(k=>'<li>Giá '+esc(k)+': '+pr[k].ok+' mã được, '+pr[k].fail+' lần lỗi</li>').join("")+'</ul>'+((st.bctc&&st.bctc.errors&&st.bctc.errors.length)?'<details class="mt-2"><summary class="cursor-pointer text-xs text-brass">Lỗi báo cáo gần nhất</summary><p class="mt-1 break-words font-mono text-xs text-muted">'+st.bctc.errors.slice(0,5).map(esc).join("<br>")+'</p></details>':'');}
   const sec=(h,b)=>'<section class="'+card+' p-4"><h2 class="mb-2 font-semibold">'+h+'</h2>'+b+'</section>';
   sh.innerHTML='<div class="mx-auto max-w-2xl space-y-4 safe-x py-4"><div class="flex items-center justify-between"><h1 class="text-lg font-semibold">Dữ liệu</h1><button type="button" data-act="closeSheet" class="'+BTN+'" id="shClose">Đóng</button></div>'+
-   sec("Đang có",'<p class="text-sm">'+ws+' mã có báo cáo, '+ps+' mã có giá lịch sử'+(keys?', '+keys+' mã thêm tay trên máy này':'')+'.</p><div class="mt-2">'+stt+'</div>')+
+   sec("Đang có",'<p class="text-sm">'+ws+' mã có báo cáo, '+ps+' mã có giá lịch sử'+(keys?', '+keys+' mã thêm tay trên máy này':'')+'.</p>'+(universeCount?'<p class="mt-1 text-xs text-muted">Mã được liệt kê trong index snapshot: BCTC '+repoFin.toLocaleString("vi-VN")+'/'+universeCount.toLocaleString("vi-VN")+' mã, giá '+repoPx.toLocaleString("vi-VN")+'/'+universeCount.toLocaleString("vi-VN")+'. Đây là số mã trong index, không xác nhận mọi file còn tồn tại hoặc dữ liệu đã được kiểm chứng.</p>':'')+'<div class="mt-2">'+stt+'</div>')+
    sec("Worker trung gian",'<p class="mb-2 text-xs text-muted">Cần để nạp riêng BCTC/lịch sử cho mã ngoài dữ liệu định kỳ và lấy quote VPS tham khảo (cache Worker tối đa 15 giây, không phải timestamp gốc). Quote chỉ gọi mã đã có giá trong app, tối đa 80 mã/lần. Dán địa chỉ Worker (https://...workers.dev).</p><div class="flex gap-2"><input id="wkUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://ten-ban.workers.dev" value="'+esc(wk())+'" class="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm"/><button type="button" data-act="wkSave" class="'+BTN+'">Lưu</button></div>'+(wk()?'<button type="button" data-act="liveNow" class="mt-2 '+BTN+'">Cập nhật quote ngay</button>':''))+
    sec("Thêm mã",'<p class="mb-2 text-xs text-muted">Nhập một hoặc nhiều mã, cách nhau bằng dấu cách. Không có Worker thì CafeF thường bị trình duyệt chặn.</p><div class="flex gap-2"><input id="addT" type="text" autocomplete="off" autocapitalize="characters" placeholder="FPT HPG MWG" class="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm uppercase"/><button type="button" data-act="addGo" class="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper">Lấy</button></div><button type="button" data-act="addVN30" class="mt-2 '+BTN+'">Nạp VN30</button>')+
    sec("Xóa",'<p class="mb-2 text-xs text-muted">Xóa các mã bạn đã thêm tay và cài đặt trên máy này. Dữ liệu từ repo không bị ảnh hưởng.</p><button type="button" data-act="wipe" class="rounded-md border border-down px-3 py-2 text-sm text-down">Xóa dữ liệu trên máy</button>')+'</div>';
@@ -1755,9 +1797,9 @@ let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>
 (async function boot(){
   loadDesk();loadUser();
   rebuild();renderAll();
-  await loadFiles();loadUser();rebuild();
+  await loadFiles();rebuild();
   if(D.sel&&!SMAP.has(D.sel))D.sel=null;if(D.step>1&&!D.sel)D.sel=defaultSel();
-  renderAll();refreshLive();
+  renderAll();if(D.step>1&&D.sel)await selectStock(D.sel,false);refreshLive();
   setInterval(()=>{if(!document.hidden)refreshLive();},20000);
   if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
