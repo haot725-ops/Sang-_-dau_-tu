@@ -540,6 +540,7 @@ async function wkGet(path,ms=25000){
   const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),ms);
   try{const w=wk();const r=await fetch(w+path,{signal:ctl.signal});const j=await r.json().catch(()=>null);
     if(!r.ok)throw new Error((j&&j.error)||"Worker trả lỗi "+r.status);return j;}
+  catch(e){if(e&&e.name==="AbortError")throw new Error("Worker chưa phản hồi sau "+Math.round(ms/1000)+" giây");throw e;}
   finally{clearTimeout(tm);}
 }
 async function directPx(t){   /* không có Worker: thử gọi thẳng VNDirect, thường bị chặn CORS */
@@ -576,15 +577,23 @@ function showProg(p,t){let e=$("prog");if(!e){e=document.createElement("div");e.
   e.hidden=false;$("progTx").textContent=t;$("progBar").style.width=Math.round(p)+"%";}
 function hideProg(){const e=$("prog");if(e)e.hidden=true;}
 
-/* Giá gần thời gian thực qua Worker */
+/* Giá gần thời gian thực qua Worker: quét luân phiên toàn bộ universe, tối đa 80 mã mỗi request. */
 const inMarket=()=>{const d=new Date(Date.now()+7*3600e3),w=d.getUTCDay(),m=d.getUTCHours()*60+d.getUTCMinutes();return w>0&&w<6&&m>=9*60&&m<=15*60;};
+let LIVE_CURSOR=0,LIVE_BUSY=false,LIVE_SCAN_DONE=false;
 async function refreshLive(force){
-  if(!wk()||(!force&&!inMarket()))return false;
-  const loaded=STOCKS.filter(s=>s.hasPx),first=D.sel&&loaded.some(s=>s.t===D.sel)?[D.sel]:[];
-  const L=[...first,...loaded.map(s=>s.t).filter(t=>!first.includes(t))].slice(0,80);if(!L.length)return false;
+  if(!wk()||LIVE_BUSY)return false;
+  const open=marketOpen();
+  if(!force&&!open&&LIVE_SCAN_DONE&&LIVE_CURSOR===0)return false;
+  const symbols=Object.keys(UNIVERSE).sort();if(!symbols.length)return false;
+  const start=LIVE_CURSOR,baseCount=80;
+  let count=Math.min(baseCount,symbols.length-start),L=symbols.slice(start,start+count);
+  if(D.sel&&UNIVERSE[D.sel]&&!L.includes(D.sel)){count=Math.min(79,symbols.length-start);L=[D.sel,...symbols.slice(start,start+count)];}
+  if(!L.length)return false;
+  LIVE_BUSY=true;
   try{const j=await wkGet("/quote?symbols="+L.join(","),15000);
     (j.quotes||[]).forEach(q=>{if(q&&q.t&&q.price>0)LIVE[q.t]={price:q.price,ref:q.ref,changePct:q.changePct,at:j.at||new Date().toISOString()};});
-    rebuild();renderAll();return true;}catch(e){return false;}
+    const next=start+count;LIVE_CURSOR=next>=symbols.length?0:next;if(LIVE_CURSOR===0)LIVE_SCAN_DONE=true;
+    rebuild();renderAll();return true;}catch(e){return false;}finally{LIVE_BUSY=false;}
 }
 
 /* =================== Chỉ báo kỹ thuật =================== */
@@ -625,22 +634,23 @@ const trendOf=(p,a,b)=>p>a&&a>b?"up":(p<=a&&p>b&&a>=b)?"pullback":(p<a&&a<b)?"do
 const TREND_LABEL={up:"Tăng",pullback:"Điều chỉnh",down:"Giảm",mixed:"Đi ngang"};
 
 /* =================== Dựng dữ liệu từng mã =================== */
-function sectorLabel(t,f){const m=META[t];if(m)return m.s;if(f)return f.sector==="nganhang"?"Ngân hàng":f.sector==="ck"?"Chứng khoán":f.sector==="bds"?"Bất động sản":"Khác";const u=UNIVERSE[t];return u&&u.s&&u.s!=="Khác"?u.s:"Khác";}
+function industryLabel(raw){const x=String(raw||"").trim(),s=x.toLowerCase();if(!s)return"Chưa phân ngành";if(s.includes("finance"))return"Tài chính";if(s.includes("real estate"))return"Bất động sản";if(s.includes("manufactur"))return"Sản xuất";if(s.includes("mining")||s.includes("oil and gas"))return"Khai khoáng & dầu khí";if(s.includes("construction"))return"Xây dựng";if(s.includes("health")||s.includes("healthy care"))return"Y tế";if(s.includes("wholesale")||s.includes("retail")||s.includes("accommodation")||s.includes("food service"))return"Thương mại & dịch vụ";if(s.includes("transportation")||s.includes("storage"))return"Vận tải & logistics";if(s.includes("information")||s.includes("communication"))return"Công nghệ & truyền thông";if(s.includes("agriculture")||s.includes("forestry")||s.includes("fishing"))return"Nông nghiệp";if(s.includes("professional")||s.includes("scientific")||s.includes("technical")||s.includes("education")||s.includes("administrative"))return"Dịch vụ chuyên môn";if(s.includes("telecommunications"))return"Viễn thông";if(s.includes("consumer services"))return"Dịch vụ tiêu dùng";return x;}
+function sectorLabel(t,f){const m=META[t];if(m)return m.s;if(f&&f.sector==="nganhang")return"Ngân hàng";if(f&&f.sector==="ck")return"Chứng khoán";if(f&&f.sector==="bds")return"Bất động sản";const u=UNIVERSE[t];return u?industryLabel(u.s):"Chưa phân ngành";}
 function mk(t){
   const f=FINS[t],px=PX[t];if(!f&&!px&&!UNIVERSE[t]&&!META[t])return null;
   const m=META[t]||UNIVERSE[t]||{t,n:t,f:t,x:"—",b:""},label=sectorLabel(t,f),financial=FIN_LABELS.includes(label);
   const S={t,name:m.n,full:m.f,exchange:m.x,sector:label,blurb:m.b||"",financial,hasFin:!!f,hasPx:!!px,pxSrc:px?px.src:"",asof:px?px.asof:null,fin:f||null,
-    price:null,changePct:null,live:false,bars:[],pe:null,pb:null,roe:null,roa:null,netMargin:null,debtEquity:null,revGrowth:null,epsGrowth:null,divYield:null,mcap:null,eps:null,bvps:null,ps:null,shares:null,
+    price:null,changePct:null,live:false,liveAt:null,bars:[],pe:null,pb:null,roe:null,roa:null,netMargin:null,debtEquity:null,revGrowth:null,epsGrowth:null,divYield:null,mcap:null,eps:null,bvps:null,ps:null,shares:null,
     kind:null,ext:null,brk:null,eq:null,ma20:null,ma50:null,rsi:null,macd:null,macdSignal:null,macdHist:null,avgVolume:null,avgValue:null,support:null,resistance:null,trend:null,lastVolume:null,q:null,lastP:f?f.last:null};
   if(px){
     S.bars=indicators(px);const n=S.bars.length,last=S.bars[n-1],prev=S.bars[n-2];
     S.price=last.close;S.changePct=prev?(last.close/prev.close-1)*100:0;
-    const lv=LIVE[t];if(lv&&lv.price>0){S.price=lv.price;S.changePct=lv.changePct!=null?lv.changePct:S.changePct;S.live=true;}
     S.ma20=last.ma20;S.ma50=last.ma50;S.rsi=last.rsi;S.macd=last.macd;S.macdSignal=last.signal;S.macdHist=last.hist;
     const w=S.bars.slice(-20);S.avgVolume=w.reduce((s,b)=>s+b.volume,0)/w.length;S.avgValue=w.reduce((s,b)=>s+b.close*b.volume/1e9,0)/w.length;
     S.support=Math.min(...w.map(b=>b.low));S.resistance=Math.max(...w.map(b=>b.high));S.lastVolume=last.volume;
     if(S.ma20!=null&&S.ma50!=null)S.trend=trendOf(S.price,S.ma20,S.ma50);
   }
+  const lv=LIVE[t];if(lv&&lv.price>0){S.price=lv.price;S.changePct=lv.changePct!=null?lv.changePct:S.changePct;S.live=true;S.liveAt=lv.at||null;}
   if(f){
     const p=f.last,T=k=>ttm(f,k,p),p4=finIdx(f,p,4);
     const ln=T("lnme")!=null?T("lnme"):T("lnst"),ln4=p4?(ttm(f,"lnme",p4)!=null?ttm(f,"lnme",p4):ttm(f,"lnst",p4)):null,dt=T("dt"),dt4=p4?ttm(f,"dt",p4):null;
@@ -1230,7 +1240,7 @@ function cheapGood(){
   return out.sort((a,b)=>b.mos-a.mos).slice(0,5);
 }
 function sectorHeat(){
-  const m=new Map();STOCKS.forEach(s=>{if(s.changePct==null||!s.price)return;const a=m.get(s.sector)||{n:0,sum:0};a.n++;a.sum+=s.changePct;m.set(s.sector,a);});
+  const liveOnly=marketOpen(),today=vnNow().toISOString().slice(0,10),m=new Map();STOCKS.forEach(s=>{const at=s.liveAt?new Date(s.liveAt):null,liveToday=at&&Number.isFinite(at.getTime())&&new Date(at.getTime()+7*36e5).toISOString().slice(0,10)===today;if((liveOnly&&!liveToday)||s.changePct==null||!s.price)return;const a=m.get(s.sector)||{n:0,sum:0};a.n++;a.sum+=s.changePct;m.set(s.sector,a);});
   return[...m.entries()].map(([k,a])=>({k,n:a.n,avg:a.sum/a.n})).sort((a,b)=>b.avg-a.avg);
 }
 function heatBg(x){const a=Math.min(1,Math.abs(x)/3)*.55+.08;return x>=0?"rgba(15,106,56,"+a.toFixed(2)+")":"rgba(142,46,40,"+a.toFixed(2)+")";}
@@ -1261,8 +1271,8 @@ function viewHome(){
   /* Biến động */
   h+='<div id="movers"></div>';
   /* Ngành */
-  const H=sectorHeat();
-  h+='<section class="'+card+' p-4" aria-labelledby="hs"><h2 id="hs" class="text-base font-semibold">Bản đồ nhiệt theo ngành</h2><p class="text-xs text-muted">% thay đổi trung bình trong phiên. Chạm một ngành để lọc ở Tầm soát.</p><div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">'+
+  const H=sectorHeat(),marketCount=UNIVERSE_INFO?.count||Object.keys(UNIVERSE).length,liveCount=Object.keys(LIVE).filter(t=>UNIVERSE[t]).length;
+  h+='<section class="'+card+' p-4" aria-labelledby="hs"><h2 id="hs" class="text-base font-semibold">Bản đồ nhiệt theo ngành</h2><p class="text-xs text-muted">% thay đổi trung bình trong phiên. Chạm một ngành để lọc ở Tầm soát.</p><p class="mt-1 text-[11px] text-muted">Đã nhận giá cho '+liveCount.toLocaleString('vi-VN')+'/'+marketCount.toLocaleString('vi-VN')+' mã; app tải luân phiên tối đa 80 mã mỗi 20 giây. Trong phiên chỉ tính mã có quote mới, ngoài phiên dùng giá gần nhất. Mã thiếu ngành được gom vào “Chưa phân ngành”.</p><div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">'+
     H.map(x=>'<button type="button" data-hm="'+esc(x.k)+'" class="min-w-0 rounded-xl p-2.5 text-left" style="background:'+heatBg(x.avg)+'"><span class="block truncate text-xs font-medium">'+esc(x.k)+'</span><span class="block font-mono text-sm font-bold">'+signedPct(x.avg,1)+'</span><span class="block text-[10px] opacity-70">'+x.n+' mã</span></button>').join("")+'</div></section>';
   v.innerHTML=h+'</div>';
 }
@@ -1288,7 +1298,7 @@ function renderMovers(){const el=$("movers");if(el)el.innerHTML=moversHtml();}
 async function loadMovers(force){
   const ex=MV.ex;if(MV.busy)return;if(!force&&MV.at[ex]&&Date.now()-MV.at[ex]<45000)return;
   MV.busy=true;MV.err="";renderMovers();
-  try{const j=await wkGet("/movers?ex="+ex+"&n=10",25000);MV.d[ex]=j;MV.at[ex]=Date.now();}
+  try{const j=await wkGet("/movers?ex="+ex+"&n=10",90000);MV.d[ex]=j;MV.at[ex]=Date.now();}
   catch(e){const m=String(e&&e.message||e);MV.err=/không có đường dẫn/.test(m)?"Worker chưa có chức năng này. Dán worker.js mới vào Cloudflare rồi bấm Deploy.":"Chưa lấy được số liệu: "+m.slice(0,140);}
   finally{MV.busy=false;renderMovers();}
 }
