@@ -579,20 +579,27 @@ function hideProg(){const e=$("prog");if(e)e.hidden=true;}
 
 /* Giá gần thời gian thực qua Worker: quét luân phiên toàn bộ universe, tối đa 80 mã mỗi request. */
 const inMarket=()=>{const d=new Date(Date.now()+7*3600e3),w=d.getUTCDay(),m=d.getUTCHours()*60+d.getUTCMinutes();return w>0&&w<6&&m>=9*60&&m<=15*60;};
+const LIVE_CACHE_KEY="sang.live.v1";
+function quoteIsToday(q,today=vnNow().toISOString().slice(0,10)){const ts=Date.parse(q&&q.at||"");return Number.isFinite(ts)&&new Date(ts+7*36e5).toISOString().slice(0,10)===today;}
+function loadLiveCache(){try{const d=JSON.parse(lsGet(LIVE_CACHE_KEY,"{}"));if(!d||typeof d!=="object")return;
+  if(Number.isInteger(d.cursor)&&d.cursor>=0)LIVE_CURSOR=d.cursor;
+  const q=d.quotes;if(q&&typeof q==="object")for(const [t,x] of Object.entries(q)){if(/^[A-Z0-9]{2,10}$/.test(t)&&x&&Number.isFinite(x.price)&&x.price>0&&Number.isFinite(x.changePct)&&typeof x.at==="string"&&Number.isFinite(Date.parse(x.at)))LIVE[t]={price:x.price,ref:Number.isFinite(x.ref)?x.ref:null,changePct:x.changePct,at:x.at};}
+ }catch(e){}}
+function saveLiveCache(){try{const quotes={};for(const [t,q] of Object.entries(LIVE))if(UNIVERSE[t]&&Number.isFinite(q.price)&&Number.isFinite(q.changePct)&&q.at)quotes[t]=q;lsSet(LIVE_CACHE_KEY,JSON.stringify({version:1,cursor:LIVE_CURSOR,savedAt:new Date().toISOString(),quotes}));}catch(e){}}
 let LIVE_CURSOR=0,LIVE_BUSY=false,LIVE_SCAN_DONE=false;
 async function refreshLive(force){
   if(!wk()||LIVE_BUSY)return false;
   const open=marketOpen();
   if(!force&&!open&&LIVE_SCAN_DONE&&LIVE_CURSOR===0)return false;
   const symbols=Object.keys(UNIVERSE).sort();if(!symbols.length)return false;
-  const start=LIVE_CURSOR,baseCount=80;
+  const start=LIVE_CURSOR%symbols.length;LIVE_CURSOR=start;const baseCount=80;
   let count=Math.min(baseCount,symbols.length-start),L=symbols.slice(start,start+count);
   if(D.sel&&UNIVERSE[D.sel]&&!L.includes(D.sel)){count=Math.min(79,symbols.length-start);L=[D.sel,...symbols.slice(start,start+count)];}
   if(!L.length)return false;
   LIVE_BUSY=true;
   try{const j=await wkGet("/quote?symbols="+L.join(","),15000);
     (j.quotes||[]).forEach(q=>{if(q&&q.t&&q.price>0)LIVE[q.t]={price:q.price,ref:q.ref,changePct:q.changePct,at:j.at||new Date().toISOString()};});
-    const next=start+count;LIVE_CURSOR=next>=symbols.length?0:next;if(LIVE_CURSOR===0)LIVE_SCAN_DONE=true;
+    const next=start+count;LIVE_CURSOR=next>=symbols.length?0:next;if(LIVE_CURSOR===0)LIVE_SCAN_DONE=true;saveLiveCache();
     rebuild();renderAll();return true;}catch(e){return false;}finally{LIVE_BUSY=false;}
 }
 
@@ -1240,7 +1247,7 @@ function cheapGood(){
   return out.sort((a,b)=>b.mos-a.mos).slice(0,5);
 }
 function sectorHeat(){
-  const liveOnly=marketOpen(),today=vnNow().toISOString().slice(0,10),m=new Map();STOCKS.forEach(s=>{const at=s.liveAt?new Date(s.liveAt):null,liveToday=at&&Number.isFinite(at.getTime())&&new Date(at.getTime()+7*36e5).toISOString().slice(0,10)===today;if((liveOnly&&!liveToday)||s.changePct==null||!s.price)return;const a=m.get(s.sector)||{n:0,sum:0};a.n++;a.sum+=s.changePct;m.set(s.sector,a);});
+  const liveOnly=marketOpen(),today=vnNow().toISOString().slice(0,10),m=new Map();STOCKS.forEach(s=>{const liveToday=quoteIsToday(LIVE[s.t],today);if((liveOnly&&!liveToday)||s.changePct==null||!s.price)return;const a=m.get(s.sector)||{n:0,sum:0};a.n++;a.sum+=s.changePct;m.set(s.sector,a);});
   return[...m.entries()].map(([k,a])=>({k,n:a.n,avg:a.sum/a.n})).sort((a,b)=>b.avg-a.avg);
 }
 function heatBg(x){const a=Math.min(1,Math.abs(x)/3)*.55+.08;return x>=0?"rgba(15,106,56,"+a.toFixed(2)+")":"rgba(142,46,40,"+a.toFixed(2)+")";}
@@ -1271,8 +1278,8 @@ function viewHome(){
   /* Biến động */
   h+='<div id="movers"></div>';
   /* Ngành */
-  const H=sectorHeat(),marketCount=UNIVERSE_INFO?.count||Object.keys(UNIVERSE).length,liveCount=Object.keys(LIVE).filter(t=>UNIVERSE[t]).length;
-  h+='<section class="'+card+' p-4" aria-labelledby="hs"><h2 id="hs" class="text-base font-semibold">Bản đồ nhiệt theo ngành</h2><p class="text-xs text-muted">% thay đổi trung bình trong phiên. Chạm một ngành để lọc ở Tầm soát.</p><p class="mt-1 text-[11px] text-muted">Đã nhận giá cho '+liveCount.toLocaleString('vi-VN')+'/'+marketCount.toLocaleString('vi-VN')+' mã; app tải luân phiên tối đa 80 mã mỗi 20 giây. Trong phiên chỉ tính mã có quote mới, ngoài phiên dùng giá gần nhất. Mã thiếu ngành được gom vào “Chưa phân ngành”.</p><div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">'+
+  const H=sectorHeat(),marketCount=UNIVERSE_INFO?.count||Object.keys(UNIVERSE).length,liveCount=Object.keys(LIVE).filter(t=>UNIVERSE[t]).length,todayCount=Object.keys(LIVE).filter(t=>UNIVERSE[t]&&quoteIsToday(LIVE[t])).length;
+  h+='<section class="'+card+' p-4" aria-labelledby="hs"><h2 id="hs" class="text-base font-semibold">Bản đồ nhiệt theo ngành</h2><p class="text-xs text-muted">% thay đổi trung bình trong phiên. Chạm một ngành để lọc ở Tầm soát.</p><p class="mt-1 text-[11px] text-muted">Đã lưu quote '+liveCount.toLocaleString('vi-VN')+'/'+marketCount.toLocaleString('vi-VN')+' mã; quote phiên hôm nay: '+todayCount.toLocaleString('vi-VN')+' mã. Dữ liệu lưu trên thiết bị và cập nhật luân phiên tối đa 80 mã mỗi 20 giây; phần trăm ngành tự tính lại khi từng mã có quote mới. Trong phiên chỉ tính quote hôm nay; ngoài phiên giữ giá gần nhất. Mã thiếu ngành được gom vào “Chưa phân ngành”.</p><div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">'+
     H.map(x=>'<button type="button" data-hm="'+esc(x.k)+'" class="min-w-0 rounded-xl p-2.5 text-left" style="background:'+heatBg(x.avg)+'"><span class="block truncate text-xs font-medium">'+esc(x.k)+'</span><span class="block font-mono text-sm font-bold">'+signedPct(x.avg,1)+'</span><span class="block text-[10px] opacity-70">'+x.n+' mã</span></button>').join("")+'</div></section>';
   v.innerHTML=h+'</div>';
 }
@@ -2030,7 +2037,7 @@ let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>
 
 /* =================== Khởi động =================== */
 (async function boot(){
-  loadDesk();loadUser();
+  loadDesk();loadUser();loadLiveCache();
   rebuild();renderAll();
   await loadFiles();rebuild();
   if(D.sel&&!SMAP.has(D.sel))D.sel=null;D.step=0;
