@@ -8,6 +8,8 @@ Snapshot được đóng gói trong `universe.json` với các trường `t` (m�
 
 Nguồn chính thức: [Danh sách cổ phiếu HOSE](https://www.hsx.vn/en/quan-ly-niem-yet/co-phieu). HOSE đặt cổ phiếu thành mục riêng, tách khỏi chứng chỉ quỹ, ETF và covered warrants. Trang đang chạy bằng ứng dụng JavaScript; tại thời điểm tra cứu không xác nhận được file CSV/XLS hay API tĩnh có thể tải đầy đủ. Trang không ghi ngày hiệu lực của toàn danh sách.
 
+Phân ngành: [Danh sách phân ngành niêm yết HOSE](https://www.hsx.vn/vi/quan-ly-niem-yet/phan-nganh-niem-yet) công bố phân loại GICS. Trang sử dụng API `https://api.hsx.vn/l/api/v1/1/sectors` để liệt kê nhóm ngành và `https://api.hsx.vn/l/api/v1/1/sector-report` để trả mã chứng khoán theo ngành. Endpoint là giao diện máy đọc được mà trang chính thức sử dụng, nhưng không có tài liệu API công khai. Kiểm tra ngày 27/11/2026 trả về 407 mã phân ngành; 5 mã trong snapshot HOSE hiện tại không xuất hiện ở danh sách này và vì vậy script để chúng chưa phân loại.
+
 Nguồn phụ để có snapshot mã máy đọc được: [StockAnalysis — Ho Chi Minh Stock Exchange Stocks](https://stockanalysis.com/list/ho-chi-minh-stock-exchange/). Trang tự mô tả đây là danh sách mã cổ phiếu đang giao dịch tích cực, cập nhật hằng ngày; hiển thị 412 mã khi truy cập ngày 24/11/2026. Đây không phải nguồn của sở giao dịch và phạm vi “actively traded” có thể khác toàn bộ cổ phiếu còn niêm yết, ví dụ mã tạm ngừng hoặc ít giao dịch. Vì vậy không ghi 412 như một con số chính thức của HOSE.
 
 Các trang HOSE riêng cho nhóm khác: [chứng chỉ quỹ](https://www.hsx.vn/en/quan-ly-niem-yet/chung-chi-quy), [ETF](https://www.hsx.vn/en/quan-ly-niem-yet/etf), [covered warrants](https://www.hsx.vn/en/quan-ly-niem-yet/cw).

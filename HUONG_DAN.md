@@ -20,7 +20,13 @@ Cloudflare → Workers → Create → dán nội dung `worker.js` → Deploy. N�
 
 Worker hỗ trợ BCTC CafeF, lịch sử nến ngày và quote VPS. Quote chỉ gọi các mã đã có lịch sử giá trong app và tối đa 80 mã mỗi lần; không yêu cầu quote cho toàn bộ 1.518 mã.
 
-## 4. Biểu đồ và độ cập nhật
+## 4. Audit và cập nhật phân ngành
+
+Chạy `python classify_missing_sectors.py` để quét `universe.json` và xem số mã còn thiếu ngành. Mặc định script chỉ audit, không sửa file. Thêm `--report sector_audit.json` để lưu báo cáo chi tiết; chỉ khi chủ động thêm `--apply` script mới ghi ngành vào `universe.json`. Có thể chạy bộ kiểm thử bằng `python -m unittest test_classify_missing_sectors.py`.
+
+Nguồn phân loại hiện là API mà trang phân ngành chính thức HOSE sử dụng, trả mã và ngành GICS. Script ghép chính xác theo mã, chỉ điền các mã HOSE đang trống, giữ nguyên ngành đã có và không suy luận từ tên doanh nghiệp. Mã HNX/UPCoM không có phân ngành ticker-level được xác minh sẽ hiện trong danh sách chưa xử lý; cần bổ sung nguồn chính thức tương ứng trước khi có thể phân loại các mã đó một cách đáng tin cậy. Giao thức API có thể thay đổi; nếu phản hồi sai cấu trúc hoặc lỗi, script dừng mà không ghi dữ liệu.
+
+## 5. Biểu đồ và độ cập nhật
 
 Trong bước “Kỹ thuật”, chọn khung nến “Ngày”, “Tuần” hoặc “Tháng”. Tuần và tháng được gộp từ OHLCV nến ngày: mở cửa đầu kỳ, cao nhất, thấp nhất, đóng cửa cuối kỳ và tổng khối lượng. Chỉ báo MA, RSI và MACD được tính lại trên chuỗi nến của khung đã chọn. Các nút `3M`, `6M`, `1Y` là khoảng hiển thị; chúng độc lập với khung nến.
 
