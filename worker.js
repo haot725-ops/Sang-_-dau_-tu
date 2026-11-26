@@ -7,6 +7,8 @@
  *   /?symbol=FPT                  báo cáo tài chính 3 loại từ CafeF   -> {bs,is,cf}
  *   /quote?symbols=FPT,HPG        giá gần thời gian thực từ VPS        -> {quotes:[{t,price,ref,change,changePct,vol}]}
  *   /history?symbol=FPT           giá ngày, thử lần lượt các nguồn      -> {t,src,d,o,h,l,c,v}
+ *   /movers?ex=HOSE&n=10          top tăng/giảm trong ngày theo sàn     -> {ex,at,up:[],down:[],stats}
+ *                                 ex = HOSE | HNX | UPCOM | ALL; n = 1..30; minVal = giá trị khớp tối thiểu (đồng), mặc định 500 triệu
  * Các nguồn là API không chính thức, có thể đổi hoặc chặn bất cứ lúc nào.
  */
 const ALLOW = ["https://haot725-ops.github.io"]; // thêm địa chỉ trang của ông nếu khác
@@ -17,6 +19,7 @@ const CAFEF = {
   cf: ["https://apiweb.cafef.vn/api/v1/BCTC/GetReportLCTT", "ALL"],
 };
 const KEEP = 260;
+const SITE = "https://haot725-ops.github.io/Sang-_-dau_-tu/"; // nơi có universe.json (danh sách mã theo sàn)
 
 const num = (x) => { const v = Number(x); return Number.isFinite(v) ? v : null; };
 const ymd = (ts) => new Date((Number(ts) + 7 * 3600) * 1000).toISOString().slice(0, 10);
@@ -73,6 +76,39 @@ async function quotes(symbols) {
     return { t: String(x.sym).toUpperCase(), price, ref, change: ref ? price - ref : null, changePct: ref ? ((price - ref) / ref) * 100 : null, vol: num(x.lot) };
   }).filter(Boolean);
 }
+async function universe(ctx) {
+  return JSON.parse(await cached(ctx, "u/all", 86400, async () => {
+    const r = await fetch(SITE + "universe.json", { headers: UA });
+    if (!r.ok) throw new Error("không đọc được universe.json (" + r.status + ")");
+    const j = await r.json();
+    return (j.stocks || []).map((s) => [s.t, s.x, s.n]);
+  }));
+}
+async function movers(ctx, ex, n, minVal) {
+  const all = await universe(ctx);
+  const list = all.filter((r) => (ex === "ALL" || r[1] === ex) && /^[A-Z0-9]{2,10}$/.test(r[0]));
+  if (!list.length) throw new Error("không có mã nào thuộc sàn " + ex);
+  const name = new Map(list.map((r) => [r[0], r[2]]));
+  const chunks = [];
+  for (let i = 0; i < list.length; i += 80) chunks.push(list.slice(i, i + 80).map((r) => r[0]));
+  const rows = [];
+  let failed = 0;
+  for (let i = 0; i < chunks.length; i += 6) {
+    await Promise.all(chunks.slice(i, i + 6).map(async (c) => {
+      try { rows.push(...(await quotes(c))); } catch (e) { failed++; }
+    }));
+  }
+  if (!rows.length) throw new Error("nguồn giá không trả dữ liệu");
+  const clean = rows.filter((q) => q.changePct != null && Number.isFinite(q.changePct)).map((q) => {
+    const sh = (q.vol || 0) * 10; // VPS trả khối lượng theo lô 10 cổ phiếu
+    return { t: q.t, n: name.get(q.t) || "", price: q.price, changePct: Math.round(q.changePct * 100) / 100, vol: sh, val: Math.round(q.price * sh) };
+  });
+  const liquid = clean.filter((q) => q.val >= minVal);
+  const up = liquid.filter((q) => q.changePct > 0).sort((a, b) => b.changePct - a.changePct || b.val - a.val).slice(0, n);
+  const down = liquid.filter((q) => q.changePct < 0).sort((a, b) => a.changePct - b.changePct || b.val - a.val).slice(0, n);
+  const stats = { up: clean.filter((q) => q.changePct > 0).length, down: clean.filter((q) => q.changePct < 0).length, flat: clean.filter((q) => q.changePct === 0).length, total: clean.length, listed: list.length };
+  return { ex, at: new Date().toISOString(), n, minVal, up, down, stats, failed };
+}
 async function bctc(sym) {
   const out = {};
   await Promise.all(Object.entries(CAFEF).map(async ([k, [url, type]]) => {
@@ -106,6 +142,14 @@ export default {
         const list = [...new Set((u.searchParams.get("symbols") || "").toUpperCase().split(/[\s,]+/))].filter((s) => /^[A-Z0-9]{2,10}$/.test(s)).slice(0, 80);
         if (!list.length) return send({ error: "symbols không hợp lệ" }, 400);
         return send(await cached(ctx, "q/" + list.join(","), 15, async () => ({ quotes: await quotes(list), at: new Date().toISOString() })));
+      }
+      if (path === "/movers") {
+        const ex = (u.searchParams.get("ex") || "HOSE").toUpperCase();
+        if (!["HOSE", "HNX", "UPCOM", "ALL"].includes(ex)) return send({ error: "ex phải là HOSE, HNX, UPCOM hoặc ALL" }, 400);
+        const n = Math.min(30, Math.max(1, parseInt(u.searchParams.get("n") || "10", 10) || 10));
+        const mv = Number(u.searchParams.get("minVal"));
+        const minVal = Number.isFinite(mv) && u.searchParams.get("minVal") !== null ? Math.min(1e11, Math.max(0, mv)) : 5e8;
+        return send(await cached(ctx, "m/" + ex + "/" + n + "/" + minVal, 30, () => movers(ctx, ex, n, minVal)));
       }
       const sym = (u.searchParams.get("symbol") || "").toUpperCase();
       if (!/^[A-Z0-9]{2,10}$/.test(sym)) return send({ error: "symbol không hợp lệ" }, 400);
