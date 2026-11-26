@@ -134,9 +134,17 @@ export default {
   async fetch(req, env, ctx) {
     const origin = req.headers.get("Origin") || "";
     const cors = { "Access-Control-Allow-Origin": ALLOW.includes(origin) ? origin : ALLOW[0], "Access-Control-Allow-Methods": "GET, OPTIONS", Vary: "Origin" };
-    const send = (body, status = 200) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8" } });
+    const send = (body, status = 200, extraHeaders = {}) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", ...extraHeaders } });
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     const u = new URL(req.url), path = u.pathname.replace(/\/+$/, "") || "/";
+    const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+    const weight = path === "/movers" ? (u.searchParams.get("ex") || "HOSE").toUpperCase() === "ALL" ? 30 : 10 : 1;
+    try {
+      const { success } = await env.SANG_API_LIMITER.limit({ key: ip, delta: weight });
+      if (!success) return send({ error: "Đã vượt giới hạn truy vấn. Vui lòng thử lại sau.", retryAfter: 60 }, 429, { "Retry-After": "60" });
+    } catch (e) {
+      return send({ error: "Bộ giới hạn truy vấn chưa sẵn sàng." }, 503);
+    }
     try {
       if (path === "/quote") {
         const list = [...new Set((u.searchParams.get("symbols") || "").toUpperCase().split(/[\s,]+/))].filter((s) => /^[A-Z0-9]{2,10}$/.test(s)).slice(0, 80);
