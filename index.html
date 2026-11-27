@@ -113,6 +113,34 @@ body #toast{border-radius:999px;box-shadow:0 12px 30px -10px rgba(28,25,22,.5)}
 body #pwa-install{left:12px!important;right:12px!important;bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;border-radius:18px!important;padding:12px 14px!important;box-shadow:0 18px 40px -12px rgba(28,25,22,.55)!important}
 body footer{border-top-color:rgba(28,25,22,.07)}
 .rscroll::-webkit-scrollbar,.overflow-x-auto::-webkit-scrollbar{height:0;display:none}.rscroll,.overflow-x-auto{scrollbar-width:none}
+
+/* ===== Kiểu app chứng khoán: thanh tab đáy, chuyển trang, thẻ thị trường, treemap ===== */
+#tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(251,248,243,.93);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid rgba(28,25,22,.08);padding:6px max(10px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right))}
+#tabbar .in{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:30rem;margin:0 auto}
+#tabbar button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0 6px;border-radius:16px;font-size:11px;line-height:1.1;font-weight:500;color:#6d655a;transition:background .22s,color .22s,transform .12s}
+#tabbar button svg{width:22px;height:22px;transition:transform .25s cubic-bezier(.2,.9,.3,1.3)}
+#tabbar button[aria-current=page]{background:#f0e1cb;color:#7a4e22;font-weight:600}
+#tabbar button[aria-current=page] svg{transform:translateY(-1px) scale(1.08)}
+@media (min-width:1024px){#tabbar{display:none}}
+@media (max-width:1023px){body{padding-bottom:calc(66px + env(safe-area-inset-bottom))}.safe-bottom{padding-bottom:1.25rem}#toast{bottom:calc(84px + env(safe-area-inset-bottom))!important}body #pwa-install{bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}}
+@keyframes pgF{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes pgB{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+#view.pgF{animation:pgF .34s cubic-bezier(.2,.8,.2,1) both}#view.pgB{animation:pgB .34s cubic-bezier(.2,.8,.2,1) both}
+@keyframes tmIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
+.tm{position:relative;width:100%;border-radius:14px;overflow:hidden;background:#e3dcd0}
+.tm>*{position:absolute}
+.tm .sec{border-radius:6px;background:rgba(28,25,22,.05)}
+.tm .st{border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;line-height:1.15;animation:tmIn .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*14ms)}
+.tm .sl{display:block;text-align:left;font-size:9.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4a443b;padding:1px 3px}
+.qa{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.qa button{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:500;color:#4a443b;min-width:0}
+.qa button i{display:grid;place-items:center;width:100%;max-width:56px;aspect-ratio:1;border-radius:18px;background:#fffdf9;border:1px solid rgba(28,25,22,.08);box-shadow:0 1px 1px rgba(28,25,22,.03),0 10px 20px -14px rgba(28,25,22,.3);color:#7a4e22}
+.qa button svg{width:24px;height:24px}
+.mcard .big{font-size:2.35rem;line-height:1;font-weight:700;letter-spacing:-.025em}
+.mcard svg.area path.ln{stroke-dasharray:1;stroke-dashoffset:0}
+.enter .mcard .area{animation:wipeL 1s .15s cubic-bezier(.2,.7,.2,1) both}
+.mcard .seg{transition:flex-grow .5s}
+.rowsticky{position:sticky;z-index:20;top:calc(3rem + env(safe-area-inset-top,0px))}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .hidden{display:none}
 </style>
@@ -124,19 +152,21 @@ body footer{border-top-color:rgba(28,25,22,.07)}
   <header class="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur safe-top">
     <div class="mx-auto flex max-w-7xl flex-col safe-x lg:h-14 lg:flex-row lg:items-center lg:gap-6">
       <div class="flex h-12 items-center justify-between lg:h-auto">
+        <button type="button" id="hback" data-step="1" class="hidden lg:hidden -ml-2 mr-1 h-9 w-9 items-center justify-center rounded-full" aria-label="Quay lại"><svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>
         <button type="button" data-step="0" class="flex items-center gap-2.5 text-left" aria-label="Về trang chủ">
           <svg viewBox="0 0 32 32" class="h-8 w-8 shrink-0" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#1c1916"/><path d="M8 11h16M8 16h16M8 21h16" stroke="#f3efe6" stroke-width="1.7" stroke-linecap="round"/><circle cx="22" cy="11" r="1.5" fill="#7a4e22"/><circle cx="13" cy="16" r="1.5" fill="#7a4e22"/><circle cx="19" cy="21" r="1.5" fill="#7a4e22"/></svg>
           <span><span class="block text-sm font-semibold leading-none">Sàng</span><span class="mt-1 block h-0.5 w-6 bg-brass"></span></span>
         </button>
         <div class="flex items-center gap-2 lg:hidden" data-slot="tools"></div>
       </div>
-      <nav aria-label="Quy trình" class="flex h-12 flex-1 items-center gap-1 lg:h-auto" id="steps"></nav>
+      <nav aria-label="Quy trình" class="hidden h-12 flex-1 items-center gap-1 lg:flex lg:h-auto" id="steps"></nav>
       <div class="hidden items-center gap-2 lg:flex" data-slot="tools"></div>
     </div>
   </header>
   <main id="noi-dung" class="mx-auto max-w-7xl safe-x py-5 safe-bottom"><div id="view"></div></main>
   <footer class="border-t border-line px-4 py-6 text-center text-xs leading-relaxed text-muted" id="foot"></footer>
 </div>
+<nav id="tabbar" aria-label="Điều hướng chính"><div class="in" id="tabin"></div></nav>
 <div id="sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-label="Cài đặt"></div>
 <div id="watchPanel"></div>
 <div id="toast" role="status" aria-live="polite" class="pointer-events-none fixed left-1/2 z-[70] max-w-[90vw] -translate-x-1/2 translate-y-3 rounded-md bg-ink px-4 py-2 text-sm text-paper opacity-0 transition" style="bottom:calc(1.5rem + env(safe-area-inset-bottom))"></div>
@@ -1197,7 +1227,19 @@ const sortVal=(s,k)=>k==="qtot"?(s.q&&s.q.tot!=null?s.q.tot:null):s[k];
 
 /* =================== Khung =================== */
 const STEPS=[[0,"Trang chủ"],[1,"Tầm soát"],[2,"Định giá"],[3,"Kỹ thuật"]];
+const IC={
+ home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/>',
+ scr:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+ ana:'<path d="M4 4v16h16"/><path d="m8 15 3.5-4 3 2.5L20 7"/>',
+ star:'<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/>',
+ val:'<path d="M12 3v18M7 8h7a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>'};
+const ico=(k,sw)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+(sw||1.8)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[k]+'</svg>';
+const TAB=n=>n>=2?2:n;
 function renderHead(){
+  {const a=D.step===0?0:D.step===1?(D.F&&D.F.watchOnly?3:1):2,hb=$("hback");
+   $("tabin").innerHTML=[["home","Trang chủ",'data-step="0"'],["scr","Tầm soát",'data-tab="scr"'],["ana","Phân tích",'data-step="2"'],["star","Theo dõi",'data-home="watch"']].map((x,i)=>'<button type="button" '+x[2]+(a===i?' aria-current="page"':'')+'>'+ico(x[0],a===i?2:1.8)+'<span>'+x[1]+'</span></button>').join("");
+   if(hb)hb.className=(D.step>=2?"flex":"hidden")+" lg:hidden -ml-2 mr-1 h-9 w-9 items-center justify-center rounded-full";}
   $("steps").innerHTML=STEPS.map(([n,l])=>'<button type="button" data-step="'+n+'" '+(D.step===n?'aria-current="step" ':'')+'class="flex h-9 items-center gap-1.5 rounded-md px-3 text-sm '+(D.step===n?'bg-ink text-paper':'text-muted hover:bg-line')+'">'+l+'</button>').join("");
   const tools='<button type="button" data-act="settings" class="'+BTN+' flex items-center gap-1.5" aria-label="Dữ liệu và cài đặt"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Dữ liệu</button>';
   document.querySelectorAll('[data-slot="tools"]').forEach(e=>{e.innerHTML=tools;});
@@ -1208,7 +1250,8 @@ function renderFoot(){
   $("foot").innerHTML='<p>'+(last?'Lịch sử nến ngày đóng cửa đến '+dmy(last)+'. ':'')+(live?'Một số mã có quote VPS tham khảo gần thời gian thực; Worker cache tối đa 15 giây, thời điểm Worker lấy dữ liệu không xác nhận timestamp gốc của nguồn. ':'')+'Biểu đồ dùng lịch sử nến ngày, tuần hoặc tháng, không phải biểu đồ realtime. Báo cáo tài chính lấy từ CafeF. Số cổ phiếu và cổ tức là ước tính từ báo cáo.</p><p class="mt-1">Công cụ tham khảo, không phải khuyến nghị đầu tư.</p>';
 }
 function renderAll(){renderHead();renderView();renderFoot();}
-function go(n){D.step=n;if(n>1&&!D.sel)D.sel=defaultSel();saveDesk();renderAll();playEnter($("view"));window.scrollTo(0,0);}
+function go(n){const o=D.step;D.step=n;if(n>1&&!D.sel)D.sel=defaultSel();saveDesk();renderAll();const v=$("view");playEnter(v);window.scrollTo(0,0);
+  if(!REDUCED&&n!==o){v.classList.remove("pgF","pgB");void v.offsetWidth;v.classList.add(n>o?"pgF":"pgB");clearTimeout(v._pg);v._pg=setTimeout(()=>v.classList.remove("pgF","pgB"),420);}}
 function defaultSel(){const w=D.watch.find(t=>SMAP.has(t));if(w)return w;const s=STOCKS.find(x=>x.price&&x.hasFin)||STOCKS[0];return s?s.t:null;}
 function renderView(){
   if(D.step===0){viewHome();renderMovers();loadMovers();}else if(D.step===1)viewScreen();else if(D.step===2)viewValue();else viewTech();
@@ -1251,20 +1294,75 @@ function sectorHeat(){
   return[...m.entries()].map(([k,a])=>({k,n:a.n,avg:a.sum/a.n})).sort((a,b)=>b.avg-a.avg);
 }
 function heatBg(x){const a=Math.min(1,Math.abs(x)/3)*.55+.08;return x>=0?"rgba(15,106,56,"+a.toFixed(2)+")":"rgba(142,46,40,"+a.toFixed(2)+")";}
+
+const BK={r:66};
+function basketSeries(maxN){
+  const m=new Map(),N=STOCKS.filter(x=>x.bars&&x.bars.length>1).length;
+  STOCKS.forEach(s=>{const b=s.bars||[];for(let i=Math.max(1,b.length-maxN-1);i<b.length;i++){const c=b[i].close,p=b[i-1].close;if(!(c>0&&p>0))continue;const r=c/p-1;if(Math.abs(r)>.2)continue;const a=m.get(b[i].date)||[0,0];a[0]+=r;a[1]++;m.set(b[i].date,a);}});
+  const out=[];let lv=100;[...m.keys()].sort().forEach(d=>{const a=m.get(d);if(a[1]<Math.max(3,N*.5))return;lv*=1+a[0]/a[1];out.push({d,v:lv});});return out;}
+function marketCard(){
+  const t=vnNow(),[ms,on]=marketState(),P=STOCKS.filter(s=>s.price&&s.changePct!=null),up=P.filter(s=>s.changePct>.005).length,dn=P.filter(s=>s.changePct<-.005).length,fl=P.length-up-dn;
+  const avg=P.length?P.reduce((a,s)=>a+s.changePct,0)/P.length:null,ser=basketSeries(130);
+  if(ser.length>=3&&avg!=null){ser[ser.length-1].v=ser[ser.length-2].v*(1+avg/100);}
+  const last=ser.length?ser[ser.length-1].v:null,prev=ser.length>1?ser[ser.length-2].v:null,seg=ser.slice(-(BK.r+1)),first=seg.length?seg[0].v:null;
+  const rp=last!=null&&first?(last/first-1)*100:null,cl=avg==null?"text-muted":avg>=0?"text-up":"text-down",rc=rp==null||rp>=0?"#0f6a38":"#8e2e28";
+  let svg='';
+  if(seg.length>=3){const W=320,H=104,lo=Math.min(...seg.map(x=>x.v)),hi=Math.max(...seg.map(x=>x.v)),r=hi-lo||1,pts=seg.map((x,i)=>[i/(seg.length-1)*W,8+(1-(x.v-lo)/r)*(H-16)]),ln=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" ");
+    svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" class="area mt-3 block h-28 w-full" role="img" aria-label="Đường rổ theo dõi"><defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+rc+'" stop-opacity=".28"/><stop offset="1" stop-color="'+rc+'" stop-opacity="0"/></linearGradient></defs><path d="'+ln+' L'+W+' '+H+' L0 '+H+' Z" fill="url(#mg)"/><path class="ln" d="'+ln+'" fill="none" stroke="'+rc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>'+
+      '<div class="mt-1 flex justify-between text-[10px] text-muted"><span>'+dmy(seg[0].d)+'</span><span>'+dmy(seg[seg.length-1].d)+'</span></div>';}
+  const pill=(n,l)=>'<button type="button" data-bkr="'+n+'" aria-pressed="'+(BK.r===n)+'" class="h-7 rounded-full px-2.5 text-xs '+(BK.r===n?'bg-ink text-paper':'text-muted')+'">'+l+'</button>';
+  const tot=Math.max(1,up+fl+dn),seg3=(n,c)=>'<i class="seg block h-full" style="flex-grow:'+n+';background:'+c+'"></i>';
+  const ab20=P.filter(s=>s.ma20!=null&&s.price>s.ma20).length,n20=P.filter(s=>s.ma20!=null).length,ab50=P.filter(s=>s.ma50!=null&&s.price>s.ma50).length,n50=P.filter(s=>s.ma50!=null).length;
+  const best=[...P].sort((a,b)=>b.changePct-a.changePct)[0],worst=[...P].sort((a,b)=>a.changePct-b.changePct)[0];
+  const chip=(l,v,c,pick)=>'<'+(pick?'button type="button" data-pick="'+esc(pick)+'"':'div')+' class="shrink-0 rounded-2xl bg-paper px-3 py-2 text-left"><span class="block text-[10.5px] text-muted">'+l+'</span><span class="block font-mono text-sm font-semibold '+(c||"")+'">'+v+'</span></'+(pick?'button':'div')+'>';
+  const dates=STOCKS.map(s=>s.asof).filter(Boolean).sort(),ld=dates.length?dates[dates.length-1]:null;
+  return'<div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="text-xs font-medium text-muted">Rổ theo dõi · '+P.length+' mã</div><div class="mt-0.5 text-[11px] text-muted">'+WD[t.getUTCDay()]+', '+String(t.getUTCDate()).padStart(2,"0")+'/'+String(t.getUTCMonth()+1).padStart(2,"0")+'</div></div><span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium '+(on?'bg-up-soft text-up':'bg-line text-muted')+'"><i class="h-1.5 w-1.5 rounded-full '+(on?'bg-up':'bg-muted')+'"></i>'+ms+'</span></div>'+
+   '<div class="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1"><div class="min-w-0"><div class="big cnt font-mono '+cl+'">'+(last==null?"—":nv(last,2))+'</div><div class="mt-1.5 flex flex-wrap items-center gap-2 text-sm"><span class="cnt rounded-md px-1.5 py-0.5 font-mono text-sm font-semibold '+(avg==null?'bg-line text-muted':avg>=0?'bg-up-soft text-up':'bg-down-soft text-down')+'">'+(avg==null?"—":signedPct(avg,2))+'</span><span class="font-mono text-xs '+cl+'">'+(last!=null&&prev!=null?(last-prev>=0?"+":"−")+nv(Math.abs(last-prev),2)+" điểm":"")+'</span></div></div>'+
+   '<div class="flex gap-0.5 rounded-full bg-paper p-0.5" role="group" aria-label="Khoảng thời gian">'+pill(22,"1 tháng")+pill(66,"3 tháng")+pill(130,"6 tháng")+'</div></div>'+svg+
+   '<div class="mt-3 flex items-center justify-between text-xs"><span class="font-medium text-up">Tăng '+up+'</span><span class="text-muted">Đứng '+fl+'</span><span class="font-medium text-down">Giảm '+dn+'</span></div>'+
+   '<div class="gbar mt-1.5 flex h-2 gap-0.5 overflow-hidden rounded-full">'+seg3(up/tot||0.0001,"#0f6a38")+seg3(fl/tot||0.0001,"#c9c0b0")+seg3(dn/tot||0.0001,"#8e2e28")+'</div>'+
+   '<div class="rscroll -mx-1 mt-3 flex gap-2 overflow-x-auto px-1">'+chip("Trên MA20",ab20+"/"+n20)+chip("Trên MA50",ab50+"/"+n50)+(best?chip("Mạnh nhất",esc(best.t)+" "+signedPct(best.changePct,1),"text-up",best.t):"")+(worst?chip("Yếu nhất",esc(worst.t)+" "+signedPct(worst.changePct,1),"text-down",worst.t):"")+'</div>'+
+   '<p class="mt-2.5 text-[11px] leading-snug text-muted">Chỉ số tự tính từ '+P.length+' mã app đang theo dõi, bình quân đều, gốc 100. Đây chưa phải VN-Index.'+(ld?' Nến ngày đến '+dmy(ld)+'.':'')+'</p>';
+}
+function heatSolid(x){const k=Math.min(1,Math.abs(x||0)/4),n=[233,228,216],c=x>=0?[31,122,71]:[168,53,46],m=i=>Math.round(n[i]+(c[i]-n[i])*k);return["rgb("+m(0)+","+m(1)+","+m(2)+")",k>.45?"#fff":"#1c1916"];}
+function squarify(items,x,y,w,h){const out=[];let rest=items.slice();
+  while(rest.length){const sh=Math.min(w,h);let row=[],sum=0,best=Infinity;
+    const worst=(r,sm)=>{const mx=Math.max(...r.map(i=>i.a)),mn=Math.min(...r.map(i=>i.a));return Math.max(sh*sh*mx/(sm*sm),sm*sm/(sh*sh*mn));};
+    while(rest.length){const nx=rest[0],r2=row.concat([nx]),s2=sum+nx.a,wv=worst(r2,s2);if(row.length&&wv>best)break;row=r2;sum=s2;best=wv;rest.shift();}
+    if(w>=h){const cw=sum/h;let cy=y;row.forEach(i=>{const ch=i.a/cw;out.push({i:i.i,x,y:cy,w:cw,h:ch});cy+=ch;});x+=cw;w-=cw;}
+    else{const rh=sum/w;let cx=x;row.forEach(i=>{const cw=i.a/rh;out.push({i:i.i,x:cx,y,w:cw,h:rh});cx+=cw;});y+=rh;h-=rh;}}
+  return out;}
+function treemap(){
+  const P0=STOCKS.filter(s=>s.price&&s.changePct!=null),PL=marketOpen()?P0.filter(s=>quoteIsToday(LIVE[s.t])):P0,P=PL.length>=3?PL:P0;if(P.length<3)return'<p class="text-sm text-muted">Chưa đủ dữ liệu giá để vẽ bản đồ.</p>';
+  const mc=P.map(s=>s.mcap).filter(x=>x>0).sort((a,b)=>a-b),med=mc.length?mc[Math.floor(mc.length/2)]:1000,wt=s=>Math.pow(s.mcap>0?s.mcap:med,.55);
+  const g=new Map();P.forEach(s=>{(g.get(s.sector)||g.set(s.sector,[]).get(s.sector)).push(s);});
+  const secs=[...g.entries()].map(([k,L])=>({k,L:L.sort((a,b)=>wt(b)-wt(a)),w:L.reduce((a,s)=>a+wt(s),0),avg:L.reduce((a,s)=>a+s.changePct,0)/L.length})).sort((a,b)=>b.w-a.w);
+  const W=100,H=innerWidth>=640?58:118,u=Math.min(innerWidth-32,768)/100,tot=secs.reduce((a,x)=>a+x.w,0);
+  const top=squarify(secs.map((x,i)=>({i,a:x.w/tot*W*H})),0,0,W,H);let h='<div class="tm" style="aspect-ratio:'+W+'/'+H+'">',n=0;
+  top.forEach(r=>{const sc=secs[r.i],lab=r.w*u>=30&&r.h*u>=30?15/u:0,pad=.35,ix=r.x+pad,iy=r.y+pad+lab,iw=r.w-2*pad,ih=r.h-2*pad-lab;
+    h+='<div class="sec" style="left:'+r.x/W*100+'%;top:'+r.y/H*100+'%;width:'+r.w/W*100+'%;height:'+r.h/H*100+'%"></div>';
+    if(lab)h+='<button type="button" class="sl" data-hm="'+esc(sc.k)+'" style="left:'+(r.x+pad)/W*100+'%;top:'+(r.y+pad)/H*100+'%;width:'+(r.w-2*pad)/W*100+'%">'+esc(sc.k)+' <span style="color:'+(sc.avg>=0?"#0f6a38":"#8e2e28")+'">'+signedPct(sc.avg,1)+'</span></button>';
+    if(iw<=0||ih<=0)return;
+    const tw=sc.L.reduce((a,s)=>a+wt(s),0),cells=squarify(sc.L.map((s,i)=>({i:s,a:wt(s)/tw*iw*ih})),ix,iy,iw,ih);
+    cells.forEach(c=>{const s=c.i,[bg,fg]=heatSolid(s.changePct),pw=c.w*u,ph=c.h*u,fs=Math.max(8,Math.min(15,pw/4.3,ph/2.3));
+      h+='<button type="button" class="st" data-pick="'+esc(s.t)+'" style="--i:'+(n++)+';left:'+c.x/W*100+'%;top:'+c.y/H*100+'%;width:'+c.w/W*100+'%;height:'+c.h/H*100+'%;background:'+bg+';color:'+fg+';font-size:'+fs.toFixed(1)+'px;border:1px solid rgba(251,248,243,.75)" aria-label="'+esc(s.t)+' '+signedPct(s.changePct,1)+'">'+(pw>=24&&ph>=15?'<b>'+esc(s.t)+'</b>'+(ph>=27&&pw>=30?'<span style="font-size:.82em;opacity:.92">'+signedPct(s.changePct,1)+'</span>':''):'')+'</button>';});});
+  return h+'</div>';
+}
+const exTag=s=>s.exchange?'<span class="rounded bg-line px-1 text-[9px] font-medium text-muted">'+esc(s.exchange==="UPCOM"?"UPCoM":s.exchange)+'</span>':'';
+const chgChip=c=>'<span class="w-[3.7rem] shrink-0 rounded-md py-1 text-center font-mono text-xs font-semibold '+(c==null?'bg-line text-muted':c>.005?'bg-up-soft text-up':c<-.005?'bg-down-soft text-down':'bg-line text-muted')+'">'+(c==null?"—":signedPct(c,1))+'</span>';
 function viewHome(){
   const v=$("view");if(!STOCKS.length){v.innerHTML=emptyData();return;}
   const t=vnNow(),[ms,on]=marketState(),P=STOCKS.filter(s=>s.price&&s.changePct!=null),up=P.filter(s=>s.changePct>0).length,dn=P.filter(s=>s.changePct<0).length,avg=P.length?P.reduce((a,s)=>a+s.changePct,0)/P.length:null;
   const best=[...P].sort((a,b)=>b.changePct-a.changePct)[0],worst=[...P].sort((a,b)=>a.changePct-b.changePct)[0];
   const dates=STOCKS.map(s=>s.asof).filter(Boolean).sort(),last=dates.length?dates[dates.length-1]:null;
-  const chip=(l,val,cl)=>'<div class="min-w-0 rounded-xl bg-paper px-3 py-2"><div class="text-[11px] text-muted">'+l+'</div><div class="truncate font-mono text-base '+(cl||"")+'">'+val+'</div></div>';
   let h='<div class="home mx-auto max-w-3xl space-y-4">';
-  h+='<div class="'+card+' p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-xs font-medium uppercase tracking-wide text-muted">'+WD[t.getUTCDay()]+', '+String(t.getUTCDate()).padStart(2,"0")+'/'+String(t.getUTCMonth()+1).padStart(2,"0")+'</div><h1 class="mt-0.5">Hôm nay</h1></div><span class="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium '+(on?'bg-up-soft text-up':'bg-line text-muted')+'"><i class="h-1.5 w-1.5 rounded-full '+(on?'bg-up':'bg-muted')+'"></i>'+ms+'</span></div>'+
-    '<div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">'+chip("Đang theo dõi",P.length+" mã")+chip("Tăng · Giảm",'<span class="text-up">'+up+'</span> · <span class="text-down">'+dn+'</span>')+chip("Trung bình",avg==null?"—":signedPct(avg,2),avg>=0?"text-up":"text-down")+chip("Mạnh nhất",best?esc(best.t)+" "+signedPct(best.changePct,1):"—","text-up")+'</div>'+
-    '<p class="mt-2 text-[11px] text-muted">Số trên tính trong '+P.length+' mã app đang theo dõi, không phải VN-Index. '+(last?'Nến ngày đến '+dmy(last)+'.':'')+'</p></div>';
+  h+='<div id="mcard" class="'+card+' mcard p-4">'+marketCard()+'</div>';
+  h+='<div class="qa" role="group" aria-label="Lối tắt">'+[["scr","Tầm soát",'data-tab="scr"'],["star","Theo dõi",'data-home="watch"'],["val","Định giá",'data-step="2"'],["ana","Kỹ thuật",'data-step="3"'],["gear","Dữ liệu",'data-act="settings"']].map(x=>'<button type="button" '+x[2]+'><i>'+ico(x[0])+'</i>'+x[1]+'</button>').join("")+'</div>';
+  h+='<section class="'+card+' p-4" aria-labelledby="hs"><div class="flex items-end justify-between gap-2"><div><h2 id="hs" class="text-base font-semibold">Bản đồ nhiệt</h2><p class="text-xs text-muted">Ô to theo vốn hóa, màu theo % trong phiên. Chạm mã để xem, chạm tên ngành để lọc.</p></div></div><div class="mt-3">'+treemap()+'</div><p class="mt-2 text-[11px] leading-snug text-muted">Đã lưu quote '+Object.keys(LIVE).filter(x=>UNIVERSE[x]).length.toLocaleString('vi-VN')+'/'+(UNIVERSE_INFO?.count||Object.keys(UNIVERSE).length).toLocaleString('vi-VN')+' mã; quote hôm nay: '+Object.keys(LIVE).filter(x=>UNIVERSE[x]&&quoteIsToday(LIVE[x])).length.toLocaleString('vi-VN')+' mã. Trong phiên chỉ tính quote hôm nay, ngoài phiên giữ giá gần nhất.</p></section>';
   /* Theo dõi */
   const W=D.watch.map(x=>SMAP.get(x)).filter(Boolean);
   h+='<section class="'+card+' p-4" aria-labelledby="hw"><div class="flex items-center justify-between gap-2"><h2 id="hw" class="text-base font-semibold">Theo dõi của ông</h2>'+(W.length?'<button type="button" data-home="watch" class="text-xs text-brass underline">Xem tất cả</button>':'')+'</div>'+
-    (W.length?'<ul class="mt-1 divide-y divide-line/70">'+W.slice(0,8).map(s=>{const c=s.changePct;return'<li class="flex items-center"><button type="button" data-pick="'+esc(s.t)+'" class="flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="block font-semibold">'+esc(s.t)+'</span><span class="block truncate text-[11px] text-muted">'+esc(s.name||"")+'</span></span>'+spark(s)+'<span class="w-16 shrink-0 text-right font-mono text-sm">'+vnd(s.price)+'</span><span class="w-14 shrink-0 text-right font-mono text-xs '+chgCl(c)+'">'+(c==null?"—":signedPct(c,1))+'</span></button>'+starBtn(s.t)+'</li>';}).join("")+'</ul>':
+    (W.length?'<ul class="mt-1 divide-y divide-line/70">'+W.slice(0,8).map(s=>{const c=s.changePct;return'<li class="flex items-center"><button type="button" data-pick="'+esc(s.t)+'" class="flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="flex items-center gap-1.5"><b>'+esc(s.t)+'</b>'+exTag(s)+'</span><span class="block truncate text-[11px] text-muted">'+esc(s.name||"")+'</span></span><span class="hidden min-[400px]:inline-flex">'+spark(s)+'</span><span class="w-16 shrink-0 text-right font-mono text-sm">'+vnd(s.price)+'</span>'+chgChip(c)+'</button>'+starBtn(s.t)+'</li>';}).join("")+'</ul>':
     '<p class="mt-2 text-sm text-muted">Chưa có mã nào. Chạm ngôi sao cạnh mã ở màn Tầm soát để thêm vào đây.</p><button type="button" data-step="1" class="'+BTN+' mt-3">Sang Tầm soát</button>')+'</section>';
   /* Cần chú ý */
   const A=attention();
@@ -1277,10 +1375,6 @@ function viewHome(){
     (C.length?'<ul class="mt-1 divide-y divide-line/70">'+C.map(x=>'<li><button type="button" data-pick="'+esc(x.s.t)+'" class="flex w-full min-w-0 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="block font-semibold">'+esc(x.s.t)+'</span><span class="block truncate text-[11px] text-muted">'+esc(x.s.name||"")+(x.q!=null?' · chất lượng '+nv(x.q,0)+'/100':'')+'</span></span><span class="shrink-0 rounded px-1.5 py-1 font-mono text-xs bg-up-soft text-up">An toàn '+signedPct(x.mos,0)+'</span></button></li>').join("")+'</ul>':'<p class="mt-2 text-sm text-muted">Chưa có mã nào đủ cả hai điều kiện lúc này.</p>')+'</section>';
   /* Biến động */
   h+='<div id="movers"></div>';
-  /* Ngành */
-  const H=sectorHeat(),marketCount=UNIVERSE_INFO?.count||Object.keys(UNIVERSE).length,liveCount=Object.keys(LIVE).filter(t=>UNIVERSE[t]).length,todayCount=Object.keys(LIVE).filter(t=>UNIVERSE[t]&&quoteIsToday(LIVE[t])).length;
-  h+='<section class="'+card+' p-4" aria-labelledby="hs"><h2 id="hs" class="text-base font-semibold">Bản đồ nhiệt theo ngành</h2><p class="text-xs text-muted">% thay đổi trung bình trong phiên. Chạm một ngành để lọc ở Tầm soát.</p><p class="mt-1 text-[11px] text-muted">Đã lưu quote '+liveCount.toLocaleString('vi-VN')+'/'+marketCount.toLocaleString('vi-VN')+' mã; quote phiên hôm nay: '+todayCount.toLocaleString('vi-VN')+' mã. Dữ liệu lưu trên thiết bị và cập nhật luân phiên tối đa 80 mã mỗi 20 giây; phần trăm ngành tự tính lại khi từng mã có quote mới. Trong phiên chỉ tính quote hôm nay; ngoài phiên giữ giá gần nhất. Mã thiếu ngành được gom vào “Chưa phân ngành”.</p><div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">'+
-    H.map(x=>'<button type="button" data-hm="'+esc(x.k)+'" class="min-w-0 rounded-xl p-2.5 text-left" style="background:'+heatBg(x.avg)+'"><span class="block truncate text-xs font-medium">'+esc(x.k)+'</span><span class="block font-mono text-sm font-bold">'+signedPct(x.avg,1)+'</span><span class="block text-[10px] opacity-70">'+x.n+' mã</span></button>').join("")+'</div></section>';
   v.innerHTML=h+'</div>';
 }
 
@@ -1349,9 +1443,7 @@ function renderRes(){
    '<div class="ml-auto flex items-center gap-1.5"><label class="text-xs text-muted" for="sortSel">Xếp theo</label><select id="sortSel" class="rounded-md border border-line bg-card px-2 py-1.5 text-sm">'+SORTS.map(s=>'<option value="'+s[0]+'"'+(D.sortKey===s[0]?' selected':'')+'>'+s[1]+'</option>').join("")+'</select><button type="button" data-act="dir" class="'+BTN+' !px-2.5 !py-1.5" aria-label="Đổi chiều sắp xếp">'+(D.sortDir<0?"↓":"↑")+'</button></div></div>';
   if(!L.length)h+='<div class="'+card+' p-6 text-center text-sm text-muted">Không mã nào qua bộ lọc này. Nới bớt một tiêu chí, hoặc xem ghi chú: mã thiếu số liệu sẽ bị loại khi bộ lọc cần số đó.</div>';
   else{
-    h+='<div class="space-y-2 md:hidden">'+shown.map(s=>'<div class="'+card+' flex items-stretch"><button type="button" data-pick="'+s.t+'" class="min-w-0 flex-1 p-3 text-left"><div class="flex items-baseline justify-between gap-2"><span class="font-semibold">'+s.t+'</span><span class="font-mono text-sm">'+(s.price!=null?vnd(s.price):"—")+' <span class="'+chgCl(s.changePct)+'">'+(s.price!=null?signedPct(s.changePct):"")+'</span></span></div>'+
-      '<div class="truncate text-xs text-muted">'+esc(s.name)+' · '+esc(s.sector)+'</div>'+
-      '<div class="mt-2 grid grid-cols-4 gap-1 text-center font-mono text-xs">'+[["P/E",s.pe==null?"—":nv(s.pe,1)],["P/B",s.pb==null?"—":nv(s.pb,1)],["ROE",s.roe==null?"—":nv(s.roe,0)+"%"],["RSI",s.rsi==null?"—":nv(s.rsi,0)]].map(x=>'<div class="rounded bg-paper py-1"><div class="text-[10px] text-muted">'+x[0]+'</div>'+x[1]+'</div>').join("")+'</div></button><div class="flex flex-col items-center justify-between py-2 pr-1">'+starBtn(s.t)+gradePill(s)+'</div></div>').join("")+'</div>';
+    h+='<div class="'+card+' md:hidden"><div class="rowsticky flex items-center gap-2 rounded-t-lg border-b border-line bg-card px-3 py-2 text-[11px] font-medium text-muted"><span class="flex-1">Mã</span><span class="hidden w-16 min-[400px]:block">Xu hướng</span><span class="w-16 text-right">Giá</span><span class="w-[3.7rem] text-center">%</span><span class="w-8"></span></div>'+shown.map(s=>'<div class="flex items-center border-b border-line/70 last:border-0"><button type="button" data-pick="'+s.t+'" class="flex min-w-0 flex-1 items-center gap-2 py-2.5 pl-3 text-left"><span class="min-w-0 flex-1"><span class="flex items-center gap-1.5"><b>'+s.t+'</b>'+exTag(s)+gradePill(s)+'</span><span class="block truncate text-[11px] text-muted">'+esc(s.name)+' · '+esc(s.sector)+'</span></span><span class="hidden min-[400px]:inline-flex">'+spark(s)+'</span><span class="w-16 shrink-0 text-right font-mono text-sm">'+(s.price!=null?vnd(s.price):"—")+'</span>'+chgChip(s.price!=null?s.changePct:null)+'</button><div class="w-8 shrink-0">'+starBtn(s.t)+'</div></div>').join("")+'</div>';
     const th=(k,l,al)=>'<th class="px-3 py-2 font-medium '+(al||"text-right")+'"><button type="button" data-sort="'+k+'" class="hover:text-ink">'+l+(D.sortKey===k?(D.sortDir<0?" ↓":" ↑"):"")+'</button></th>';
     h+='<div class="'+card+' hidden overflow-x-auto md:block"><table class="w-full text-sm"><thead class="border-b border-line text-xs text-muted"><tr><th class="w-10"></th>'+th("t","Mã","text-left")+th("avgValue","Giá")+th("changePct","%")+th("mcap","Vốn hóa")+th("pe","P/E")+th("pb","P/B")+th("roe","ROE")+th("divYield","Cổ tức")+th("revGrowth","Tăng DT")+th("rsi","RSI")+th("qtot","BC")+'</tr></thead><tbody>'+
      shown.map(s=>'<tr class="cursor-pointer border-b border-line/70 last:border-0 hover:bg-paper" data-pick="'+s.t+'" tabindex="0"><td class="pl-2">'+starBtn(s.t)+'</td><td class="px-3 py-2"><div class="font-semibold">'+s.t+'</div><div class="max-w-[14rem] truncate text-xs text-muted">'+esc(s.name)+' · '+esc(s.sector)+'</div></td>'+
@@ -1366,7 +1458,8 @@ function renderRes(){
 /* =================== Chọn mã dùng chung bước 2 và 3 =================== */
 function picker(s){
   const L=[...STOCKS].sort((a,b)=>a.t.localeCompare(b.t));
-  return'<div class="mb-4 flex flex-wrap items-center gap-2"><label for="selT" class="text-sm text-muted">Mã</label><select id="selT" class="min-w-0 max-w-full rounded-md border border-line bg-card px-3 py-2 text-sm font-medium">'+L.map(x=>'<option value="'+x.t+'"'+(s&&x.t===s.t?' selected':'')+'>'+x.t+' — '+esc(x.name)+'</option>').join("")+'</select>'+(s?starBtn(s.t):'')+'<button type="button" data-step="1" class="ml-auto text-sm text-muted underline">← Về tầm soát</button></div>';
+  const sub='<div class="mb-3 flex gap-2 overflow-x-auto lg:hidden" role="tablist" aria-label="Phân tích">'+[[2,"Định giá"],[3,"Kỹ thuật"]].map(([n,l])=>'<button type="button" data-step="'+n+'" role="tab" aria-selected="'+(D.step===n)+'" class="h-9 shrink-0 rounded-full px-4 text-sm font-medium '+(D.step===n?'bg-ink text-paper':'border border-line bg-card text-muted')+'">'+l+'</button>').join("")+'</div>';
+  return sub+'<div class="mb-4 flex flex-wrap items-center gap-2"><label for="selT" class="text-sm text-muted">Mã</label><select id="selT" class="min-w-0 max-w-full rounded-md border border-line bg-card px-3 py-2 text-sm font-medium">'+L.map(x=>'<option value="'+x.t+'"'+(s&&x.t===s.t?' selected':'')+'>'+x.t+' — '+esc(x.name)+'</option>').join("")+'</select>'+(s?starBtn(s.t):'')+'<button type="button" data-step="1" class="ml-auto text-sm text-muted underline">← Về tầm soát</button></div>';
 }
 function breakBanner(s){
   const b=s.brk;if(!b||!b.distorted)return"";
@@ -1962,6 +2055,8 @@ document.addEventListener("click",e=>{
   const g=s=>e.target.closest(s);let x;
   if((x=g("[data-watch]"))){e.stopPropagation();const t=x.dataset.watch,i=D.watch.indexOf(t);if(i<0)D.watch.push(t);else D.watch.splice(i,1);saveDesk();if(D.step===1)renderRes();else renderView();return;}
   if((x=g("[data-home]"))){D.F=defaultFilters();D.F.preset="watch";D.F.watchOnly=true;go(1);return;}
+  if((x=g("[data-tab]"))){if(D.F&&D.F.watchOnly)D.F=defaultFilters();go(1);return;}
+  if((x=g("[data-bkr]"))){BK.r=+x.dataset.bkr;const m=$("mcard");if(m){m.innerHTML=marketCard();playEnter(m);}return;}
   if((x=g("[data-hm]"))){D.F=defaultFilters();D.F.sectors=[x.dataset.hm];go(1);return;}
   if((x=g("[data-mvex]"))){MV.ex=x.dataset.mvex;MV.err="";renderMovers();loadMovers();return;}
   if((x=g("[data-mvdir]"))){MV.dir=x.dataset.mvdir;renderMovers();return;}
