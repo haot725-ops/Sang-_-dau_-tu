@@ -11,6 +11,7 @@
  *                                 ex = HOSE | HNX | UPCOM | ALL; n = 1..30; minVal = giá trị khớp tối thiểu (đồng), mặc định 500 triệu
  *   /heatmap?ex=HOSE&n=150        bản đồ nhiệt cả sàn                   -> {ex,at,basis,capSrc,rows:[[mã,giá,%,giá trị khớp,vốn hóa tỷ]]}
  *   /profile?symbols=FPT,HPG      ngành và số cổ phiếu lưu hành từ TCBS (tối đa 30 mã) -> {rows:[[mã,ngành,số cổ phiếu]]}
+ *   /news                          tiêu đề tin chứng khoán Vietstock RSS, chỉ gồm ngày và link bài gốc
  *   /caps?probe=1                 kiểm tra nguồn vốn hóa (để chẩn đoán)
  * Các nguồn là API không chính thức, có thể đổi hoặc chặn bất cứ lúc nào.
  */
@@ -207,6 +208,36 @@ async function cached(ctx, key, ttl, make) {
   return body;
 }
 
+function xmlText(value) {
+  return String(value || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]*>/g, " ")
+    .replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_, code) => {
+      if (code[0] === "#") { const n = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10); return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : ""; }
+      return ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[code.toLowerCase()] || "";
+    }).replace(/\s+/g, " ").trim();
+}
+
+function rssField(item, name) {
+  const m = item.match(new RegExp("<" + name + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + name + "\\s*>", "i"));
+  return m ? xmlText(m[1]) : "";
+}
+
+async function vietstockNews() {
+  const r = await fetch("https://vietstock.vn/144/chung-khoan.rss", {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; SangNewsReader/1.0)", Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8" },
+  });
+  if (!r.ok) throw new Error("Vietstock RSS trả " + r.status);
+  const xml = await r.text();
+  const items = [...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].slice(0, 30).map((m) => {
+    const title = rssField(m[1], "title"), rawUrl = rssField(m[1], "link"), date = rssField(m[1], "pubDate");
+    let url = "";
+    try { const u = new URL(rawUrl); if (u.protocol === "https:" && (u.hostname === "vietstock.vn" || u.hostname.endsWith(".vietstock.vn"))) url = u.href; } catch (_) {}
+    const publishedAt = new Date(date);
+    return title && url && Number.isFinite(publishedAt.getTime()) ? { title, url, publishedAt: publishedAt.toISOString() } : null;
+  }).filter(Boolean);
+  if (!items.length) throw new Error("Vietstock RSS không có tin hợp lệ");
+  return { source: "Vietstock", at: new Date().toISOString(), items };
+}
+
 export default {
   async fetch(req, env, ctx) {
     const origin = req.headers.get("Origin") || "";
@@ -215,7 +246,7 @@ export default {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     const u = new URL(req.url), path = u.pathname.replace(/\/+$/, "") || "/";
     const ip = req.headers.get("CF-Connecting-IP") || "unknown";
-    const weight = path === "/movers" ? (u.searchParams.get("ex") || "HOSE").toUpperCase() === "ALL" ? 30 : 10 : path === "/heatmap" ? 10 : path === "/profile" ? 5 : 1;
+    const weight = path === "/movers" ? (u.searchParams.get("ex") || "HOSE").toUpperCase() === "ALL" ? 30 : 10 : path === "/heatmap" ? 10 : path === "/profile" ? 5 : path === "/news" ? 2 : 1;
     try {
       const { success } = await env.SANG_API_LIMITER.limit({ key: ip, delta: weight });
       if (!success) return send({ error: "Đã vượt giới hạn truy vấn. Vui lòng thử lại sau.", retryAfter: 60 }, 429, { "Retry-After": "60" });
@@ -252,6 +283,7 @@ export default {
         const c = await caps(ctx, true);
         return send({ src: c.src, count: Object.keys(c.map).length, tries: c.dbg });
       }
+      if (path === "/news") return send(await cached(ctx, "news/vietstock-securities", 300, vietstockNews));
       const sym = (u.searchParams.get("symbol") || "").toUpperCase();
       if (!/^[A-Z0-9]{2,10}$/.test(sym)) return send({ error: "symbol không hợp lệ" }, 400);
       if (path === "/history") return send(await cached(ctx, "h/" + sym, 1800, () => history(sym)));
