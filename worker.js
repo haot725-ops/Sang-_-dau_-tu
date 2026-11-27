@@ -9,6 +9,9 @@
  *   /history?symbol=FPT           giá ngày, thử lần lượt các nguồn      -> {t,src,d,o,h,l,c,v}
  *   /movers?ex=HOSE&n=10          top tăng/giảm trong ngày theo sàn     -> {ex,at,up:[],down:[],stats}
  *                                 ex = HOSE | HNX | UPCOM | ALL; n = 1..30; minVal = giá trị khớp tối thiểu (đồng), mặc định 500 triệu
+ *   /heatmap?ex=HOSE&n=150        bản đồ nhiệt cả sàn                   -> {ex,at,basis,capSrc,rows:[[mã,giá,%,giá trị khớp,vốn hóa tỷ]]}
+ *   /profile?symbols=FPT,HPG      ngành và số cổ phiếu lưu hành từ TCBS (tối đa 30 mã) -> {rows:[[mã,ngành,số cổ phiếu]]}
+ *   /caps?probe=1                 kiểm tra nguồn vốn hóa (để chẩn đoán)
  * Các nguồn là API không chính thức, có thể đổi hoặc chặn bất cứ lúc nào.
  */
 const ALLOW = ["https://haot725-ops.github.io"]; // thêm địa chỉ trang của ông nếu khác
@@ -109,6 +112,80 @@ async function movers(ctx, ex, n, minVal) {
   const stats = { up: clean.filter((q) => q.changePct > 0).length, down: clean.filter((q) => q.changePct < 0).length, flat: clean.filter((q) => q.changePct === 0).length, total: clean.length, listed: list.length };
   return { ex, at: new Date().toISOString(), n, minVal, up, down, stats, failed };
 }
+
+/* ---- Vốn hóa: thử lần lượt các nguồn, nhớ kết quả 12 giờ ---- */
+const CAP_TRIES = [
+  ["vndirect-ratios-q", "https://finfo-api.vndirect.com.vn/v4/ratios/latest?order=reportDate&fields=code,ratioCode,value,reportDate&size=5000&q=" + encodeURIComponent("ratioCode:MARKETCAP")],
+  ["vndirect-ratios-filter", "https://finfo-api.vndirect.com.vn/v4/ratios/latest?order=reportDate&fields=code,ratioCode,value,reportDate&size=5000&filter=" + encodeURIComponent("ratioCode:MARKETCAP")],
+  ["vndirect-ratios-item", "https://finfo-api.vndirect.com.vn/v4/ratios/latest?order=reportDate&fields=code,itemCode,value,reportDate&size=5000&filter=" + encodeURIComponent("itemCode:51003")],
+];
+function parseCaps(js) {
+  const rows = Array.isArray(js) ? js : js && Array.isArray(js.data) ? js.data : [];
+  const m = {};
+  for (const r of rows) {
+    const t = String(r.code || r.ticker || r.symbol || "").toUpperCase(), v = num(r.value ?? r.marketCap ?? r.mc);
+    if (/^[A-Z0-9]{2,10}$/.test(t) && v > 0) m[t] = v;
+  }
+  const vals = Object.values(m).sort((a, b) => a - b);
+  if (vals.length < 100) return null;
+  const k = vals[Math.floor(vals.length / 2)] > 1e8 ? 1e9 : 1; // VND -> tỷ; nếu đã là tỷ thì giữ
+  const out = {};
+  for (const t in m) out[t] = Math.round((m[t] / k) * 10) / 10;
+  return out;
+}
+async function caps(ctx, probe) {
+  const dbg = [];
+  for (const [src, url] of CAP_TRIES) {
+    try {
+      const r = await fetch(url, { headers: UA });
+      const text = await r.text();
+      let m = null;
+      try { m = parseCaps(JSON.parse(text)); } catch (e) { /* không phải JSON */ }
+      dbg.push({ src, status: r.status, count: m ? Object.keys(m).length : 0, sample: probe ? text.slice(0, 300) : undefined });
+      if (m && !probe) return { src, map: m };
+      if (m && probe) return { src, map: m, dbg };
+    } catch (e) { dbg.push({ src, error: String((e && e.message) || e) }); }
+  }
+  return { src: null, map: {}, dbg };
+}
+async function heatmap(ctx, ex, n) {
+  const all = await universe(ctx);
+  const list = all.filter((r) => (ex === "ALL" || r[1] === ex) && /^[A-Z0-9]{2,10}$/.test(r[0]));
+  if (!list.length) throw new Error("không có mã nào thuộc sàn " + ex);
+  const capRes = JSON.parse(await cached(ctx, "caps/v1", (v) => (v.src ? 43200 : 300), async () => { const c = await caps(ctx, false); return { src: c.src, map: c.map }; }));
+  const chunks = [];
+  for (let i = 0; i < list.length; i += 80) chunks.push(list.slice(i, i + 80).map((r) => r[0]));
+  const rows = [];
+  let failed = 0;
+  for (let i = 0; i < chunks.length; i += 6) {
+    await Promise.all(chunks.slice(i, i + 6).map(async (c) => {
+      try { rows.push(...(await quotes(c))); } catch (e) { failed++; }
+    }));
+  }
+  if (!rows.length) throw new Error("nguồn giá không trả dữ liệu");
+  const clean = rows.filter((q) => q.changePct != null && Number.isFinite(q.changePct)).map((q) => {
+    const val = Math.round(q.price * (q.vol || 0) * 10);
+    return [q.t, q.price, Math.round(q.changePct * 100) / 100, val, capRes.map[q.t] || null];
+  });
+  const haveCap = clean.filter((r) => r[4] > 0).length >= Math.min(30, clean.length * 0.3);
+  const basis = haveCap ? "cap" : "val";
+  const top = clean.filter((r) => (haveCap ? r[4] > 0 : r[3] > 0)).sort((a, b) => (haveCap ? b[4] - a[4] : b[3] - a[3])).slice(0, n);
+  return { ex, at: new Date().toISOString(), basis, capSrc: capRes.src, total: clean.length, listed: list.length, failed, rows: top };
+}
+async function profile(sym, probe) {
+  const r = await fetch("https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/" + sym + "/overview", { headers: UA });
+  if (!r.ok) throw new Error("TCBS HTTP " + r.status);
+  const j = await r.json();
+  if (probe) return j;
+  const ind = String(j.industry || j.industryEn || "").trim();
+  let sh = num(j.outstandingShare ?? j.issueShare);
+  if (sh != null && sh > 0 && sh < 1e5) sh = Math.round(sh * 1e6); // TCBS trả theo triệu cổ phiếu
+  return [sym, ind, sh > 0 ? sh : null];
+}
+async function profiles(list) {
+  const rows = await Promise.all(list.map((t) => profile(t).catch(() => null)));
+  return { at: new Date().toISOString(), rows: rows.filter(Boolean), failed: rows.filter((x) => !x).length };
+}
 async function bctc(sym) {
   const out = {};
   await Promise.all(Object.entries(CAFEF).map(async ([k, [url, type]]) => {
@@ -125,8 +202,8 @@ async function cached(ctx, key, ttl, make) {
   const cache = caches.default, req = new Request("https://cache.local/" + key);
   const hit = await cache.match(req);
   if (hit) return hit.text();
-  const body = JSON.stringify(await make());
-  ctx.waitUntil(cache.put(req, new Response(body, { headers: { "Cache-Control": "max-age=" + ttl } })));
+  const val = await make(), body = JSON.stringify(val);
+  ctx.waitUntil(cache.put(req, new Response(body, { headers: { "Cache-Control": "max-age=" + (typeof ttl === "function" ? ttl(val) : ttl) } })));
   return body;
 }
 
@@ -138,7 +215,7 @@ export default {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     const u = new URL(req.url), path = u.pathname.replace(/\/+$/, "") || "/";
     const ip = req.headers.get("CF-Connecting-IP") || "unknown";
-    const weight = path === "/movers" ? (u.searchParams.get("ex") || "HOSE").toUpperCase() === "ALL" ? 30 : 10 : 1;
+    const weight = path === "/movers" ? (u.searchParams.get("ex") || "HOSE").toUpperCase() === "ALL" ? 30 : 10 : path === "/heatmap" ? 10 : path === "/profile" ? 5 : 1;
     try {
       const { success } = await env.SANG_API_LIMITER.limit({ key: ip, delta: weight });
       if (!success) return send({ error: "Đã vượt giới hạn truy vấn. Vui lòng thử lại sau.", retryAfter: 60 }, 429, { "Retry-After": "60" });
@@ -158,6 +235,22 @@ export default {
         const mv = Number(u.searchParams.get("minVal"));
         const minVal = Number.isFinite(mv) && u.searchParams.get("minVal") !== null ? Math.min(1e11, Math.max(0, mv)) : 5e8;
         return send(await cached(ctx, "m/" + ex + "/" + n + "/" + minVal, 30, () => movers(ctx, ex, n, minVal)));
+      }
+      if (path === "/heatmap") {
+        const ex = (u.searchParams.get("ex") || "HOSE").toUpperCase();
+        if (!["HOSE", "HNX", "UPCOM", "ALL"].includes(ex)) return send({ error: "ex phải là HOSE, HNX, UPCOM hoặc ALL" }, 400);
+        const n = Math.min(300, Math.max(20, parseInt(u.searchParams.get("n") || "150", 10) || 150));
+        return send(await cached(ctx, "hm/" + ex + "/" + n, 15, () => heatmap(ctx, ex, n)));
+      }
+      if (path === "/profile") {
+        const list = [...new Set((u.searchParams.get("symbols") || "").toUpperCase().split(/[\s,]+/))].filter((x) => /^[A-Z0-9]{2,10}$/.test(x)).slice(0, 30);
+        if (!list.length) return send({ error: "symbols không hợp lệ" }, 400);
+        if (u.searchParams.get("probe")) return send(await profile(list[0], true));
+        return send(await cached(ctx, "p/" + list.join(","), (v) => (v.rows.length ? 604800 : 60), () => profiles(list)));
+      }
+      if (path === "/caps") {
+        const c = await caps(ctx, true);
+        return send({ src: c.src, count: Object.keys(c.map).length, tries: c.dbg });
       }
       const sym = (u.searchParams.get("symbol") || "").toUpperCase();
       if (!/^[A-Z0-9]{2,10}$/.test(sym)) return send({ error: "symbol không hợp lệ" }, 400);
