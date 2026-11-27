@@ -173,19 +173,53 @@ async function heatmap(ctx, ex, n) {
   const top = clean.filter((r) => (haveCap ? r[4] > 0 : r[3] > 0)).sort((a, b) => (haveCap ? b[4] - a[4] : b[3] - a[3])).slice(0, n);
   return { ex, at: new Date().toISOString(), basis, capSrc: capRes.src, total: clean.length, listed: list.length, failed, rows: top };
 }
-async function profile(sym, probe) {
-  const r = await fetch("https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/" + sym + "/overview", { headers: UA });
-  if (!r.ok) throw new Error("TCBS HTTP " + r.status);
-  const j = await r.json();
-  if (probe) return j;
-  const ind = String(j.industry || j.industryEn || "").trim();
-  let sh = num(j.outstandingShare ?? j.issueShare);
-  if (sh != null && sh > 0 && sh < 1e5) sh = Math.round(sh * 1e6); // TCBS trả theo triệu cổ phiếu
-  return [sym, ind, sh > 0 ? sh : null];
+const PROFILE_SOURCES = [
+  ["tcbs-pub", (t) => "https://apipub.tcbs.com.vn/tcanalysis/v1/ticker/" + t + "/overview", { ...UA, Origin: "https://tcinvest.tcbs.com.vn", Referer: "https://tcinvest.tcbs.com.vn/", "Accept-Language": "vi-VN,vi;q=0.9" }, (j) => j],
+  ["tcbs-aws", (t) => "https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/" + t + "/overview", { ...UA, Origin: "https://tcinvest.tcbs.com.vn", Referer: "https://tcinvest.tcbs.com.vn/", "Accept-Language": "vi-VN,vi;q=0.9" }, (j) => j],
+  ["vnd-profile", (t) => "https://finfo-api.vndirect.com.vn/v4/company_profiles?q=code:" + t, { ...UA, Origin: "https://dstock.vndirect.com.vn", Referer: "https://dstock.vndirect.com.vn/" }, (j) => j.data?.[0] || null],
+  ["vnd-stock", (t) => "https://finfo-api.vndirect.com.vn/v4/stocks?q=code:" + t, { ...UA, Origin: "https://dstock.vndirect.com.vn", Referer: "https://dstock.vndirect.com.vn/" }, (j) => j.data?.[0] || null],
+];
+function profileRow(sym, data) {
+  if (!data) return null;
+  const pick = (keys) => { for (const key of keys) if (data[key] != null && data[key] !== "") return data[key]; return null; };
+  const ind = String(pick(["industry", "industryName", "icbName", "icbIndustry", "industryEn", "industryNameVi", "sectorName"]) || "").trim();
+  let shares = num(pick(["outstandingShare", "outstandingShares", "issueShare", "listedShare", "listedShares", "shareOutstanding"]));
+  if (shares != null && shares > 0 && shares < 1e5) shares = Math.round(shares * 1e6); // nguồn TCBS có thể trả theo triệu cổ phiếu
+  return ind || shares > 0 ? [sym, ind, shares > 0 ? shares : null] : null;
+}
+async function profileFrom(sym, index) {
+  const [name, url, headers, unwrap] = PROFILE_SOURCES[index];
+  const r = await fetch(url(sym), { headers });
+  const text = await r.text();
+  if (!r.ok) throw new Error(name + " HTTP " + r.status);
+  let data;
+  try { data = unwrap(JSON.parse(text)); } catch (e) { throw new Error(name + " JSON không hợp lệ"); }
+  return { row: profileRow(sym, data), src: index, name, status: r.status, sample: text.slice(0, 250) };
+}
+async function profile(sym, probe = false, sourceIndex = null) {
+  const indexes = sourceIndex == null ? PROFILE_SOURCES.map((_, i) => i) : [sourceIndex];
+  const diagnostics = [];
+  for (const i of indexes) {
+    try {
+      const result = await profileFrom(sym, i);
+      if (probe) diagnostics.push({ src: result.name, status: result.status, ok: !!result.row, row: result.row, sample: result.sample });
+      else if (result.row) return result;
+    } catch (e) {
+      if (probe) diagnostics.push({ src: PROFILE_SOURCES[i][0], error: String(e?.message || e) });
+    }
+  }
+  if (probe) return diagnostics;
+  throw new Error("không nguồn nào trả hồ sơ " + sym);
 }
 async function profiles(list) {
-  const rows = await Promise.all(list.map((t) => profile(t).catch(() => null)));
-  return { at: new Date().toISOString(), rows: rows.filter(Boolean), failed: rows.filter((x) => !x).length };
+  let first = null;
+  for (const t of list) {
+    try { first = await profile(t); break; } catch (_) {}
+  }
+  if (!first) return { at: new Date().toISOString(), rows: [], failed: list.length };
+  const rest = await Promise.all(list.filter((t) => t !== first.row[0]).map((t) => profile(t, false, first.src).catch(() => null)));
+  const rows = [first, ...rest].filter(Boolean).map((x) => x.row);
+  return { at: new Date().toISOString(), rows, failed: list.length - rows.length };
 }
 async function bctc(sym) {
   const out = {};
