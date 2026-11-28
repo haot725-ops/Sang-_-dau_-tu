@@ -10,7 +10,7 @@
  *   /movers?ex=HOSE&n=10          top tăng/giảm trong ngày theo sàn     -> {ex,at,up:[],down:[],stats}
  *                                 ex = HOSE | HNX | UPCOM | ALL; n = 1..30; minVal = giá trị khớp tối thiểu (đồng), mặc định 500 triệu
  *   /heatmap?ex=HOSE&n=150        bản đồ nhiệt cả sàn                   -> {ex,at,basis,capSrc,rows:[[mã,giá,%,giá trị khớp,vốn hóa tỷ]]}
- *   /profile?symbols=FPT,HPG      ngành và số cổ phiếu lưu hành từ TCBS (tối đa 30 mã) -> {rows:[[mã,ngành,số cổ phiếu]]}
+ *   /profile?symbols=FPT,HPG      ngành và số cổ phiếu lưu hành từ Vietstock A-Z (tối đa 30 mã), dự phòng TCBS/VNDirect -> {rows:[[mã,ngành,số cổ phiếu]]}
  *   /news                          tiêu đề tin chứng khoán Vietstock RSS, chỉ gồm ngày và link bài gốc
  *   /caps?probe=1                 kiểm tra nguồn vốn hóa (để chẩn đoán)
  * Các nguồn là API không chính thức, có thể đổi hoặc chặn bất cứ lúc nào.
@@ -182,10 +182,63 @@ const PROFILE_SOURCES = [
 function profileRow(sym, data) {
   if (!data) return null;
   const pick = (keys) => { for (const key of keys) if (data[key] != null && data[key] !== "") return data[key]; return null; };
-  const ind = String(pick(["industry", "industryName", "icbName", "icbIndustry", "industryEn", "industryNameVi", "sectorName"]) || "").trim();
-  let shares = num(pick(["outstandingShare", "outstandingShares", "issueShare", "listedShare", "listedShares", "shareOutstanding"]));
+  const ind = String(pick(["IndustryName", "industry", "industryName", "icbName", "icbIndustry", "industryEn", "industryNameVi", "sectorName"]) || "").trim();
+  let shares = num(pick(["TotalShares", "outstandingShare", "outstandingShares", "issueShare", "listedShare", "listedShares", "shareOutstanding"]));
   if (shares != null && shares > 0 && shares < 1e5) shares = Math.round(shares * 1e6); // nguồn TCBS có thể trả theo triệu cổ phiếu
   return ind || shares > 0 ? [sym, ind, shares > 0 ? shares : null] : null;
+}
+function vietstockCookieHeader(headers) {
+  const lines = typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [headers.get("set-cookie") || ""];
+  const found = new Map();
+  for (const line of lines) {
+    for (const match of line.matchAll(/(?:^|[,\s])(ASP\.NET_SessionId|__RequestVerificationToken|language)=([^;,\s]+)/g)) found.set(match[1], match[2]);
+  }
+  return [...found.entries()].map(([name, value]) => name + "=" + value).join("; ");
+}
+async function vietstockSession() {
+  const pageUrl = "https://finance.vietstock.vn/doanh-nghiep-a-z?page=1";
+  const r = await fetch(pageUrl, { headers: { ...UA, Accept: "text/html,application/xhtml+xml", Referer: "https://finance.vietstock.vn/" } });
+  if (!r.ok) throw new Error("Vietstock A-Z HTTP " + r.status);
+  const html = await r.text();
+  const tokenInput = html.match(/<input\b[^>]*\bname=["']?__RequestVerificationToken["']?[^>]*>/i)?.[0] || "";
+  const token = tokenInput.match(/\bvalue=["']?([^"'\s>]+)/i)?.[1] || "";
+  const cookie = vietstockCookieHeader(r.headers);
+  if (!token || !cookie.includes("ASP.NET_SessionId=")) throw new Error("Vietstock A-Z thiếu token phiên hoặc cookie");
+  return { token, cookie, pageUrl };
+}
+async function vietstockProfile(sym, session) {
+  const body = new URLSearchParams({
+    catID: "0", industryID: "0", page: "1", pageSize: "20", type: "0", code: sym,
+    businessTypeID: "0", orderBy: "Code", orderDir: "ASC", __RequestVerificationToken: session.token,
+  });
+  const r = await fetch("https://finance.vietstock.vn/data/corporateaz", {
+    method: "POST",
+    headers: {
+      ...UA, Accept: "application/json, text/javascript, */*; q=0.01",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "X-Requested-With": "XMLHttpRequest", Origin: "https://finance.vietstock.vn",
+      Referer: session.pageUrl, Cookie: session.cookie,
+    },
+    body: body.toString(),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error("Vietstock A-Z HTTP " + r.status);
+  let records;
+  try { records = JSON.parse(text); } catch (_) { throw new Error("Vietstock A-Z không trả JSON"); }
+  if (!Array.isArray(records)) throw new Error("Vietstock A-Z trả dữ liệu lạ");
+  const data = records.find((item) => String(item.Code || "").trim().toUpperCase() === sym) || null;
+  return { row: profileRow(sym, data), src: "vietstock-az", name: "Vietstock A-Z", status: r.status, sample: text.slice(0, 250) };
+}
+async function vietstockProfiles(list) {
+  const session = await vietstockSession();
+  const rows = [];
+  for (let i = 0; i < list.length; i += 6) {
+    const batch = await Promise.all(list.slice(i, i + 6).map(async (sym) => {
+      try { return (await vietstockProfile(sym, session)).row; } catch (_) { return null; }
+    }));
+    rows.push(...batch.filter(Boolean));
+  }
+  return { source: "Vietstock A-Z", at: new Date().toISOString(), rows, failed: list.length - rows.length };
 }
 async function profileFrom(sym, index) {
   const [name, url, headers, unwrap] = PROFILE_SOURCES[index];
@@ -197,6 +250,17 @@ async function profileFrom(sym, index) {
   return { row: profileRow(sym, data), src: index, name, status: r.status, sample: text.slice(0, 250) };
 }
 async function profile(sym, probe = false, sourceIndex = null) {
+  if (probe) {
+    const diagnostics = [];
+    try {
+      const result = await vietstockProfile(sym, await vietstockSession());
+      diagnostics.push({ src: result.name, status: result.status, ok: !!result.row, row: result.row, sample: result.sample });
+    } catch (e) { diagnostics.push({ src: "Vietstock A-Z", error: String(e?.message || e) }); }
+    return diagnostics.concat(await legacyProfile(sym, true, sourceIndex));
+  }
+  return legacyProfile(sym, false, sourceIndex);
+}
+async function legacyProfile(sym, probe = false, sourceIndex = null) {
   const indexes = sourceIndex == null ? PROFILE_SOURCES.map((_, i) => i) : [sourceIndex];
   const diagnostics = [];
   for (const i of indexes) {
@@ -211,7 +275,7 @@ async function profile(sym, probe = false, sourceIndex = null) {
   if (probe) return diagnostics;
   throw new Error("không nguồn nào trả hồ sơ " + sym);
 }
-async function profiles(list) {
+async function legacyProfiles(list) {
   let first = null;
   for (const t of list) {
     try { first = await profile(t); break; } catch (_) {}
@@ -220,6 +284,13 @@ async function profiles(list) {
   const rest = await Promise.all(list.filter((t) => t !== first.row[0]).map((t) => profile(t, false, first.src).catch(() => null)));
   const rows = [first, ...rest].filter(Boolean).map((x) => x.row);
   return { at: new Date().toISOString(), rows, failed: list.length - rows.length };
+}
+async function profiles(list) {
+  try {
+    const result = await vietstockProfiles(list);
+    if (result.rows.length) return result;
+  } catch (_) { /* Vietstock có thể đổi/chặn API; giữ nguồn dự phòng cũ. */ }
+  return legacyProfiles(list);
 }
 async function bctc(sym) {
   const out = {};
@@ -311,7 +382,7 @@ export default {
         const list = [...new Set((u.searchParams.get("symbols") || "").toUpperCase().split(/[\s,]+/))].filter((x) => /^[A-Z0-9]{2,10}$/.test(x)).slice(0, 30);
         if (!list.length) return send({ error: "symbols không hợp lệ" }, 400);
         if (u.searchParams.get("probe")) return send(await profile(list[0], true));
-        return send(await cached(ctx, "p/" + list.join(","), (v) => (v.rows.length ? 604800 : 60), () => profiles(list)));
+        return send(await cached(ctx, "p/" + list.join(","), (v) => (v.rows.length === list.length ? 604800 : v.rows.length ? 15 : 60), () => profiles(list)));
       }
       if (path === "/caps") {
         const c = await caps(ctx, true);

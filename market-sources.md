@@ -22,6 +22,10 @@ Nguồn chính thức: [Danh sách cổ phiếu niêm yết HNX](https://hnx.vn/
 
 Nguồn chính thức: [Danh sách chứng khoán UPCoM của HNX](https://hnx.vn/en-gb/cophieu-etfs/chung-khoan-uc.html). Trang gửi POST tới [endpoint UPCoM của HNX](https://hnx.vn/ModuleIssuer/UC_Issuer/ListSearch_Datas), với `p_market_code=UC`; bảng gắn nhóm dưới mục cổ phiếu UPCoM và có cột khối lượng cổ phiếu đăng ký. Phản hồi kiểm tra ngày 24/11/2026 ghi 807 mã và trích xuất đủ 807 hàng duy nhất. Endpoint trả JSON bọc HTML, không phải API JSON có cấu trúc được tài liệu hóa; không hiển thị ngày hiệu lực tổng thể.
 
+## Nguồn ngành trực tuyến
+
+Ứng dụng bổ sung ngành và tổng số cổ phiếu lưu hành theo lô qua [Vietstock A-Z](https://finance.vietstock.vn/doanh-nghiep-a-z?page=1). Worker đọc trang để lấy token phiên, sau đó POST từng mã tới endpoint dữ liệu mà trang sử dụng; các trường `IndustryName` và `TotalShares` được dùng cho nhãn ngành và tính vốn hóa. Đây là endpoint nội bộ, không có tài liệu API công khai và có thể thay đổi hoặc chặn truy cập. Các nguồn hồ sơ TCBS/VNDirect cũ vẫn được giữ làm dự phòng khi Vietstock không cung cấp được hồ sơ cho cả lô.
+
 ## Cách đọc snapshot
 
 Snapshot gồm 1.518 mã duy nhất: 412 HOSE, 299 HNX và 807 UPCoM; 57 mã cấu hình cũ đều có mặt. Danh sách là universe để tìm/chọn và làm đầu vào cho lô BCTC luân phiên, không có nghĩa dữ liệu của mọi mã đã được tải. `tickers.json` tiếp tục là nhóm 57 mã crawler lấy báo cáo và giá mỗi ngày chạy; các mã khác được quét BCTC theo lô 200 mã mỗi ngày làm việc, với tối đa 3 worker (mỗi mã vẫn gọi API tuần tự và nghỉ 1 giây giữa các báo cáo), còn giá lịch sử định kỳ vẫn giữ ở nhóm cốt lõi. Thời lượng thực tế phụ thuộc phản hồi/retry từ các API CafeF không chính thức. Snapshot HOSE dùng nguồn phụ, “đang giao dịch tích cực”, và không bảo đảm bao phủ cổ phiếu ít giao dịch/tạm ngừng; HNX/UPCoM lấy từ danh sách chính thức nhưng không xác nhận giao dịch đang diễn ra trong ngày.

@@ -494,7 +494,8 @@ async function profFill(pri){
   PROF_BUSY=true;
   try{const j=await wkGet("/profile?symbols="+L.join(","),30000);const got=new Set();
     (j.rows||[]).forEach(r=>{if(r&&r[0]){PROF[r[0]]=[String(r[1]||""),r[2]>0?r[2]:null];got.add(r[0]);}});
-    L.forEach(t=>{if(!got.has(t))PROF_FAIL.set(t,Date.now()+864e5);});
+    const retryDelay=j.source==="Vietstock A-Z"?300000:864e5;
+    L.forEach(t=>{if(!got.has(t))PROF_FAIL.set(t,Date.now()+retryDelay);});
     if(got.size){profSave();profApply();rebuild();if(D.step===0)paintHeat();}}
   catch(e){const m=String(e&&e.message||e);if(/không có đường dẫn/.test(m))PROF_FAIL.set("*",1);L.forEach(t=>PROF_FAIL.set(t,Date.now()+(/không có đường dẫn/.test(m)?36e5*6:6e4)));}
   finally{PROF_BUSY=false;}
