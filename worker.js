@@ -335,7 +335,13 @@ async function vietstockNews() {
   const items = [...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].slice(0, 30).map((m) => {
     const title = rssField(m[1], "title"), rawUrl = rssField(m[1], "link"), date = rssField(m[1], "pubDate");
     let url = "";
-    try { const u = new URL(rawUrl); if (u.protocol === "https:" && (u.hostname === "vietstock.vn" || u.hostname.endsWith(".vietstock.vn"))) url = u.href; } catch (_) {}
+    try {
+      const u = new URL(rawUrl);
+      if ((u.protocol === "http:" || u.protocol === "https:") && (u.hostname === "vietstock.vn" || u.hostname.endsWith(".vietstock.vn"))) {
+        u.protocol = "https:";
+        url = u.href;
+      }
+    } catch (_) {}
     const publishedAt = new Date(date);
     return title && url && Number.isFinite(publishedAt.getTime()) ? { title, url, publishedAt: publishedAt.toISOString() } : null;
   }).filter(Boolean);
