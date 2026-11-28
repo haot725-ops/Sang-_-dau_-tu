@@ -584,12 +584,13 @@ async function selectStock(t,switchStep=true){
 
 /* =================== Worker và nạp theo yêu cầu =================== */
 const wk=()=>finWorker();
-async function wkGet(path,ms=25000){
-  const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),ms);
+async function wkGet(path,ms=25000,signal=null){
+  const ctl=new AbortController(),relay=()=>ctl.abort(),tm=setTimeout(()=>ctl.abort(),ms);
+  if(signal){if(signal.aborted)ctl.abort();else signal.addEventListener("abort",relay,{once:true});}
   try{const w=wk();const r=await fetch(w+path,{signal:ctl.signal});const j=await r.json().catch(()=>null);
     if(!r.ok)throw new Error((j&&j.error)||"Worker trả lỗi "+r.status);return j;}
   catch(e){if(e&&e.name==="AbortError")throw new Error("Worker chưa phản hồi sau "+Math.round(ms/1000)+" giây");throw e;}
-  finally{clearTimeout(tm);}
+  finally{clearTimeout(tm);if(signal)signal.removeEventListener("abort",relay);}
 }
 async function directPx(t){   /* không có Worker: thử gọi thẳng VNDirect, thường bị chặn CORS */
   const start=new Date(Date.now()-430*864e5).toISOString().slice(0,10);
@@ -636,7 +637,7 @@ function loadLiveCache(){try{const d=JSON.parse(lsGet(LIVE_CACHE_KEY,"{}"));if(!
 function saveLiveCache(){try{const quotes={};for(const [t,q] of Object.entries(LIVE))if(UNIVERSE[t]&&Number.isFinite(q.price)&&Number.isFinite(q.changePct)&&q.at)quotes[t]=q;lsSet(LIVE_CACHE_KEY,JSON.stringify({version:1,cursor:LIVE_CURSOR,savedAt:new Date().toISOString(),quotes}));}catch(e){}}
 let LIVE_CURSOR=0,LIVE_BUSY=false,LIVE_SCAN_DONE=false,HEAT_BUSY=false,HEAT_AT=0;
 async function refreshHeat(force){
-  if(!wk()||HEAT_BUSY||document.hidden)return false;
+  if(!wk()||HEAT_BUSY||document.hidden||(D.step===0&&BOARD.busy))return false;
   if(!force&&Date.now()-HEAT_AT<(marketOpen()?12000:600000))return false;
   const L=heatSet().map(s=>s.t);if(!L.length)return false;
   HEAT_BUSY=true;
@@ -1284,7 +1285,7 @@ function go(n){const o=D.step;D.step=n;if(n>1&&!D.sel)D.sel=defaultSel();saveDes
   if(!REDUCED&&n!==o){v.classList.remove("pgF","pgB");void v.offsetWidth;v.classList.add(n>o?"pgF":"pgB");clearTimeout(v._pg);v._pg=setTimeout(()=>v.classList.remove("pgF","pgB"),420);}}
 function defaultSel(){const w=D.watch.find(t=>SMAP.has(t));if(w)return w;const s=STOCKS.find(x=>x.price&&x.hasFin)||STOCKS[0];return s?s.t:null;}
 function renderView(){
-  if(D.step===0){viewHome();renderMovers();loadMovers();}else if(D.step===1)viewScreen();else if(D.step===2)viewValue();else if(D.step===3)viewTech();else{viewNews();loadNews(false);}
+  if(D.step===0){viewHome();renderMovers();}else if(D.step===1)viewScreen();else if(D.step===2)viewValue();else if(D.step===3)viewTech();else{viewNews();loadNews(false);}
 }
 const card="rounded-lg border border-line bg-card";
 
@@ -1388,7 +1389,7 @@ function hmHtml(){
   return'<div class="mb-3 flex items-center justify-between gap-2">'+tabs+(HM.busy?'<span class="text-[11px] text-muted">Đang cập nhật…</span>':'')+'</div>'+body+'<p class="mt-2 text-[11px] leading-snug text-muted">'+note+(d&&HM.err?' '+HM.err:'')+'</p>';
 }
 async function loadHeatmap(force){
-  if(!wk()||HM.busy||document.hidden)return;const ex=HM.ex,d=HM.d[ex];
+  if(!wk()||HM.busy||document.hidden||(D.step===0&&BOARD.busy))return;const ex=HM.ex,d=HM.d[ex];
   if(!force&&d&&Date.now()-HM.at<(marketOpen()?20000:600000))return;
   HM.busy=true;HM.err="";if(D.step===0&&force)paintHeat();
   try{const j=await wkGet("/heatmap?ex="+ex+"&n=250",30000);if(j&&Array.isArray(j.rows)&&j.rows.length){HM.d[ex]=j;HM.at=Date.now();lsSet("sang.hm."+ex,JSON.stringify(j));profFill(j.rows.map(r=>r[0]));}else throw new Error("Worker trả dữ liệu rỗng");}
@@ -1446,35 +1447,62 @@ function treemap(still,list){
 }
 const exTag=s=>s.exchange?'<span class="rounded bg-line px-1 text-[9px] font-medium text-muted">'+esc(s.exchange==="UPCOM"?"UPCoM":s.exchange)+'</span>':'';
 const chgChip=c=>'<span class="w-[3.7rem] shrink-0 rounded-md py-1 text-center font-mono text-xs font-semibold '+(c==null?'bg-line text-muted':c>.005?'bg-up-soft text-up':c<-.005?'bg-down-soft text-down':'bg-line text-muted')+'">'+(c==null?"—":signedPct(c,1))+'</span>';
-const BOARD={ex:"ALL",query:"",page:0,pageSize:30,busy:false,err:"",lastKey:"",lastAt:0};
+const BOARD={ex:"ALL",query:"",page:0,pageSize:30,busy:false,err:"",lastKey:"",lastAt:0,seq:0,activeKey:"",controller:null,progress:0,total:0};
+let HOME_MARKET_STARTED=false;
 function boardList(){const q=fold(BOARD.query);return STOCKS.filter(s=>(BOARD.ex==="ALL"||s.exchange===BOARD.ex)&&(!q||fold(s.t+" "+s.name+" "+s.sector).includes(q))).sort((a,b)=>a.t.localeCompare(b.t));}
 function boardHtml(){
   const labels=[["ALL","Toàn thị trường"],["HOSE","HOSE"],["HNX","HNX"],["UPCOM","UPCoM"]];
-  return'<section class="'+card+' overflow-hidden p-3 sm:p-4" aria-labelledby="boardTitle"><div class="flex flex-wrap items-end justify-between gap-2"><div><h1 id="boardTitle" class="text-xl font-bold">Bảng giá cổ phiếu</h1><p class="mt-1 text-xs text-muted">Tra cứu theo mã, tên doanh nghiệp và sàn.</p></div><span id="boardCount" class="text-xs text-muted"></span></div>'+
+  return'<section id="boardCard" class="'+card+' overflow-hidden p-3 sm:p-4" aria-labelledby="boardTitle"><div class="flex flex-wrap items-end justify-between gap-2"><div><h1 id="boardTitle" class="text-xl font-bold">Bảng giá cổ phiếu</h1><p class="mt-1 text-xs text-muted">Tra cứu theo mã, tên doanh nghiệp và sàn.</p></div><span id="boardCount" class="text-xs text-muted"></span></div>'+
     '<label class="sr-only" for="boardSearch">Tìm mã chứng khoán</label><input id="boardSearch" type="search" autocomplete="off" placeholder="Tìm mã hoặc tên công ty" value="'+esc(BOARD.query)+'" class="mt-3 w-full border border-line px-3 py-2 text-sm"/>'+
     '<div class="rscroll mt-3 flex gap-1 overflow-x-auto" role="group" aria-label="Lọc theo sàn">'+labels.map(([k,l])=>'<button type="button" data-board-ex="'+k+'" aria-pressed="'+(BOARD.ex===k)+'" class="shrink-0 rounded-full border px-3 py-1.5 text-xs '+(BOARD.ex===k?'border-ink bg-ink text-paper':'border-line bg-paper text-muted')+'">'+l+'</button>').join('')+'</div>'+
     '<div class="mt-3 flex items-center justify-between gap-2"><span id="boardStatus" class="min-w-0 text-xs text-muted"></span><button type="button" data-board-refresh class="'+BTN+' shrink-0 px-2.5 py-1.5 text-xs">'+(BOARD.busy?'Đang tải…':'Làm mới giá')+'</button></div>'+
     '<div class="mt-2 overflow-x-auto"><table class="w-full min-w-[430px] text-sm"><thead class="text-xs text-muted"><tr class="border-b border-line"><th scope="col" class="py-2 text-left font-medium">Mã / Doanh nghiệp</th><th scope="col" class="py-2 text-right font-medium">Giá</th><th scope="col" class="py-2 text-right font-medium">Thay đổi</th></tr></thead><tbody id="boardRows" class="divide-y divide-line/70"></tbody></table></div>'+
     '<div id="boardPages" class="mt-3 flex items-center justify-between gap-2"></div><p class="mt-3 text-[11px] leading-snug text-muted">Quote VPS mang tính tham khảo, cache Worker tối đa 15 giây; mã chưa có quote sẽ dùng giá lịch sử nếu app đã có. Không có dữ liệu không đồng nghĩa mã không giao dịch.</p></section>';
 }
+function renderBoard(){
+  const old=$("boardCard");if(!old)return;const wrap=document.createElement("div");wrap.innerHTML=boardHtml();
+  const next=wrap.firstElementChild;if(next){old.replaceWith(next);renderBoardBody();}
+}
 function renderBoardBody(){
   const body=$("boardRows");if(!body)return;const all=boardList(),pages=Math.max(1,Math.ceil(all.length/BOARD.pageSize));BOARD.page=Math.min(BOARD.page,pages-1);
   const start=BOARD.page*BOARD.pageSize,rows=all.slice(start,start+BOARD.pageSize),count=$("boardCount"),status=$("boardStatus"),pagesEl=$("boardPages");
   if(count){const priced=all.filter(s=>s.price>0).length,live=all.filter(s=>LIVE[s.t]&&quoteIsToday(LIVE[s.t])).length;count.textContent=all.length.toLocaleString("vi-VN")+" mã · "+priced.toLocaleString("vi-VN")+" có giá · "+live.toLocaleString("vi-VN")+" quote hôm nay";}
-  if(status)status.textContent=BOARD.err?BOARD.err:(BOARD.busy?"Đang tải giá trang này…":"Trang "+(BOARD.page+1)+"/"+pages+(BOARD.lastAt?" · cập nhật "+new Date(BOARD.lastAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Ho_Chi_Minh"}):""));
+  if(status)status.textContent=BOARD.busy?"Đang tải "+BOARD.progress+"/"+BOARD.total+" mã theo lô 5…":(BOARD.err?BOARD.err:"Trang "+(BOARD.page+1)+"/"+pages+(BOARD.lastAt?" · cập nhật "+new Date(BOARD.lastAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Ho_Chi_Minh"}):""));
+  const refresh=document.querySelector("[data-board-refresh]");if(refresh){refresh.textContent=BOARD.busy?"Đang tải…":"Làm mới giá";refresh.setAttribute("aria-busy",BOARD.busy?"true":"false");}
   body.innerHTML=rows.length?rows.map(s=>{const q=LIVE[s.t],fresh=q&&quoteIsToday(q),src=fresh?"Quote VPS hôm nay":q?"Quote đã lưu":s.asof?"Lịch sử · "+dmy(s.asof):"Chưa có giá";
-    return'<tr tabindex="0" role="button" data-pick="'+esc(s.t)+'" class="cursor-pointer hover:bg-paper/70"><td class="py-2.5 pr-3"><span class="flex items-center gap-1.5"><b class="font-mono text-sm">'+esc(s.t)+'</b>'+exTag(s)+'</span><span class="mt-0.5 block max-w-[17rem] truncate text-[11px] text-muted">'+esc(s.name||"")+'</span></td><td class="py-2.5 text-right font-mono font-semibold">'+vnd(s.price)+'<span class="mt-0.5 block text-[10px] font-sans font-normal text-muted">'+src+'</span></td><td class="py-2.5 text-right">'+chgChip(s.changePct)+'</td></tr>';}).join(""):'<tr><td colspan="3" class="py-8 text-center text-sm text-muted">Không tìm thấy mã phù hợp.</td></tr>';
+    return'<tr tabindex="0" role="button" data-pick="'+esc(s.t)+'" class="cursor-pointer hover:bg-paper/70"><td class="py-2.5 pr-3"><span class="flex items-center gap-1.5"><b class="font-mono text-sm">'+esc(s.t)+'</b>'+exTag(s)+'</span><span class="mt-0.5 block max-w-[17rem] truncate text-[11px] text-muted">'+esc(s.name||"")+'</span></td><td class="py-2.5 text-right font-mono font-semibold">'+vnd(s.price)+'<span class="mt-0.5 block text-[10px] font-sans font-normal text-muted">'+src+'</span></td><td class="py-2.5 text-right">'+chgChip(s.changePct)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="py-8 text-center text-sm text-muted">Không tìm thấy mã phù hợp.</td></tr>';
   if(pagesEl)pagesEl.innerHTML='<button type="button" data-board-page="-1" '+(BOARD.page===0?'disabled':'')+' class="'+BTN+' px-3 py-1.5 text-xs disabled:opacity-40">← Trước</button><span class="text-xs text-muted">'+(all.length?start+1:0)+'–'+Math.min(start+rows.length,all.length)+' / '+all.length.toLocaleString("vi-VN")+'</span><button type="button" data-board-page="1" '+(BOARD.page>=pages-1?'disabled':'')+' class="'+BTN+' px-3 py-1.5 text-xs disabled:opacity-40">Tiếp →</button>';
 }
+function deferHomeMarketData(){
+  if(HOME_MARKET_STARTED||D.step!==0||document.hidden||BOARD.busy)return;HOME_MARKET_STARTED=true;
+  setTimeout(()=>{if(D.step!==0||document.hidden||BOARD.busy){HOME_MARKET_STARTED=false;return;}loadVnIndex(false);refreshHeat(true);loadHeatmap(false);loadMovers(false);},250);
+}
 async function loadBoardQuotes(force){
-  if(D.step!==0||!wk()||BOARD.busy||!STOCKS.length)return;const rows=boardList().slice(BOARD.page*BOARD.pageSize,(BOARD.page+1)*BOARD.pageSize),symbols=rows.map(s=>s.t),key=symbols.join(",");if(!key)return;
-  if(!force&&BOARD.lastKey===key&&Date.now()-BOARD.lastAt<15000)return;
-  if(!force&&rows.every(s=>LIVE[s.t]&&Date.now()-Date.parse(LIVE[s.t].at)<15000))return;
-  BOARD.busy=true;BOARD.err="";const reqKey=key;renderBoardBody();
-  try{const j=await wkGet("/quote?symbols="+symbols.join(","),20000);(j.quotes||[]).forEach(q=>{if(q&&UNIVERSE[q.t]&&q.price>0)LIVE[q.t]={price:q.price,ref:q.ref,changePct:q.changePct,at:j.at||new Date().toISOString()};});
-    BOARD.lastKey=reqKey;BOARD.lastAt=Date.now();saveLiveCache();rebuild();
-  }catch(e){BOARD.err="Chưa lấy được quote: "+String(e&&e.message||e).slice(0,110);BOARD.lastKey=reqKey;BOARD.lastAt=Date.now();}
-  finally{BOARD.busy=false;if(D.step===0){renderBoardBody();if(boardList().slice(BOARD.page*BOARD.pageSize,(BOARD.page+1)*BOARD.pageSize).map(s=>s.t).join(",")!==reqKey)loadBoardQuotes(false);}}
+  if(D.step!==0||!wk()||!STOCKS.length)return;
+  const rows=boardList().slice(BOARD.page*BOARD.pageSize,(BOARD.page+1)*BOARD.pageSize),key=rows.map(s=>s.t).join(",");
+  if(BOARD.busy&&BOARD.activeKey===key&&!force)return;
+  if(BOARD.busy){if(BOARD.controller)BOARD.controller.abort();BOARD.seq++;BOARD.busy=false;BOARD.controller=null;BOARD.activeKey="";}
+  if(!key){renderBoardBody();return;}
+  const now=Date.now(),targets=rows.filter(s=>force||!LIVE[s.t]||!Number.isFinite(Date.parse(LIVE[s.t].at))||now-Date.parse(LIVE[s.t].at)>=15000).map(s=>s.t);
+  if(!targets.length){BOARD.err="";renderBoardBody();deferHomeMarketData();return;}
+  const controller=new AbortController(),token=++BOARD.seq;BOARD.controller=controller;BOARD.activeKey=key;BOARD.busy=true;BOARD.err="";BOARD.progress=0;BOARD.total=targets.length;renderBoardBody();
+  const batches=[];for(let i=0;i<targets.length;i+=5)batches.push(targets.slice(i,i+5));
+  let next=0,failed=0;
+  try{
+    await Promise.all(Array.from({length:Math.min(2,batches.length)},async()=>{
+      while(next<batches.length){const batch=batches[next++];
+        try{
+          const j=await wkGet("/quote?symbols="+batch.join(","),15000,controller.signal);if(token!==BOARD.seq)return;
+          const at=j.at||new Date().toISOString();(j.quotes||[]).forEach(q=>{if(q&&UNIVERSE[q.t]&&Number.isFinite(q.price)&&q.price>0){LIVE[q.t]={price:q.price,ref:q.ref,changePct:q.changePct,at};const s=SMAP.get(q.t);if(s){s.price=q.price;if(q.changePct!=null)s.changePct=q.changePct;s.live=true;s.liveAt=at;}}});
+        }catch(e){if(token!==BOARD.seq)return;failed+=batch.length;}
+        BOARD.progress+=batch.length;saveLiveCache();renderBoardBody();
+      }
+    }));
+    if(token!==BOARD.seq)return;BOARD.lastKey=key;BOARD.lastAt=Date.now();BOARD.err=failed?"Quote chưa tải được cho "+failed+"/"+targets.length+" mã; vẫn giữ giá đã lưu nếu có.":"";
+  }finally{
+    if(token===BOARD.seq){BOARD.busy=false;BOARD.controller=null;BOARD.activeKey="";renderBoardBody();if(D.step===0)refreshHomeQuoteWidgets();
+      if(D.step===0){const current=boardList().slice(BOARD.page*BOARD.pageSize,(BOARD.page+1)*BOARD.pageSize).map(s=>s.t).join(",");if(current!==key)loadBoardQuotes(false);else deferHomeMarketData();}}
+  }
 }
 const NEWS={items:[],at:0,busy:false,err:""};
 function newsHtml(){const body=NEWS.items.length?'<ol class="divide-y divide-line/70">'+NEWS.items.map(x=>'<li><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer" class="block py-3.5 text-left"><span class="block font-medium leading-snug">'+esc(x.title)+'</span><span class="mt-1.5 flex items-center gap-2 text-[11px] text-muted"><span>Vietstock</span><span aria-hidden="true">·</span><time datetime="'+esc(x.publishedAt)+'">'+new Date(x.publishedAt).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Ho_Chi_Minh"})+'</time><span class="ml-auto text-brass">Đọc bài ↗</span></span></a></li>').join("")+'</ol>': '<div class="rounded-xl bg-paper p-4 text-sm text-muted">'+(NEWS.busy?'Đang tải tin chứng khoán…':esc(NEWS.err||"Chưa có tin để hiển thị."))+'</div>';
@@ -1486,6 +1514,27 @@ async function loadNews(force){
   try{const j=await wkGet("/news",20000);NEWS.items=Array.isArray(j.items)?j.items.filter(x=>x&&typeof x.title==="string"&&/^https:\/\//.test(x.url)&&Date.parse(x.publishedAt)).slice(0,30):[];if(!NEWS.items.length)throw new Error("Worker trả danh sách tin rỗng");NEWS.at=Date.now();}
   catch(e){const m=String(e&&e.message||e);NEWS.err=/không có đường dẫn/.test(m)?"Worker Cloudflare chưa có tuyến /news. Cần cập nhật worker.js và Deploy trước khi tải tin.":"Chưa tải được RSS Vietstock: "+m.slice(0,130);NEWS.at=Date.now();}
   finally{NEWS.busy=false;if(D.step===4)viewNews();}
+}
+function homeWatchHtml(){
+  const W=D.watch.map(x=>SMAP.get(x)).filter(Boolean);
+  return'<section id="watchCard" class="'+card+' p-4" aria-labelledby="hw"><div class="flex items-center justify-between gap-2"><h2 id="hw" class="text-base font-semibold">Theo dõi của ông</h2>'+(W.length?'<button type="button" data-home="watch" class="text-xs text-brass underline">Xem tất cả</button>':'')+'</div>'+
+    (W.length?'<ul class="mt-1 divide-y divide-line/70">'+W.slice(0,8).map(s=>{const c=s.changePct;return'<li class="flex items-center"><button type="button" data-pick="'+esc(s.t)+'" class="flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="flex items-center gap-1.5"><b>'+esc(s.t)+'</b>'+exTag(s)+'</span><span class="block truncate text-[11px] text-muted">'+esc(s.name||'')+'</span></span><span class="hidden min-[400px]:inline-flex">'+spark(s)+'</span><span class="w-16 shrink-0 text-right font-mono text-sm">'+vnd(s.price)+'</span>'+chgChip(c)+'</button>'+starBtn(s.t)+'</li>';}).join('')+'</ul>':'<p class="mt-2 text-sm text-muted">Chưa có mã nào. Chạm ngôi sao cạnh mã ở màn Tầm soát để thêm vào đây.</p><button type="button" data-step="1" class="'+BTN+' mt-3">Sang Tầm soát</button>')+'</section>';
+}
+function homeAttentionHtml(){
+  const A=attention();
+  return'<section id="attentionCard" class="'+card+' p-4" aria-labelledby="ha"><h2 id="ha" class="text-base font-semibold">Hôm nay cần chú ý</h2>'+
+    (A.length?'<ul class="mt-1 divide-y divide-line/70">'+A.map(x=>'<li><button type="button" data-pick="'+esc(x.t)+'" class="flex w-full min-w-0 items-start gap-2.5 py-2.5 text-left"><i class="mt-1.5 h-2 w-2 shrink-0 rounded-full '+DOT[x.tone]+'"></i><span class="min-w-0 text-sm"><b>'+esc(x.t)+'</b>'+(x.watch?' <span class="rounded bg-brass-soft px-1 text-[10px] text-brass">theo dõi</span>':'')+' '+esc(x.text)+'</span></button></li>').join('')+'</ul>':'<p class="mt-2 text-sm text-muted">Chưa có mã nào có tín hiệu nổi bật.</p>')+
+    '<p class="mt-2 text-[11px] text-muted">Tự rút ra từ báo cáo và đường giá, ưu tiên mã ông theo dõi. Chỉ là gợi ý để xem trước, không phải khuyến nghị.</p></section>';
+}
+function homeCheapHtml(){
+  const C=cheapGood();
+  return'<section id="cheapCard" class="'+card+' p-4" aria-labelledby="hc"><h2 id="hc" class="text-base font-semibold">Rẻ mà chất lượng tốt</h2><p class="text-xs text-muted">Giá thấp hơn mức hợp lý từ 15%, điểm chất lượng từ 60, không có cảnh báo lãi.</p>'+
+    (C.length?'<ul class="mt-1 divide-y divide-line/70">'+C.map(x=>'<li><button type="button" data-pick="'+esc(x.s.t)+'" class="flex w-full min-w-0 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="block font-semibold">'+esc(x.s.t)+'</span><span class="block truncate text-[11px] text-muted">'+esc(x.s.name||'')+(x.q!=null?' · chất lượng '+nv(x.q,0)+'/100':'')+'</span></span><span class="shrink-0 rounded px-1.5 py-1 font-mono text-xs bg-up-soft text-up">An toàn '+signedPct(x.mos,0)+'</span></button></li>').join('')+'</ul>':'<p class="mt-2 text-sm text-muted">Chưa có mã nào đủ cả hai điều kiện lúc này.</p>')+'</section>';
+}
+function refreshHomeQuoteWidgets(){
+  if(D.step!==0)return;
+  const m=$("mcard");if(m)m.innerHTML=marketCard();
+  [["watchCard",homeWatchHtml],["attentionCard",homeAttentionHtml],["cheapCard",homeCheapHtml]].forEach(([id,render])=>{const old=$(id);if(!old)return;const wrap=document.createElement("div");wrap.innerHTML=render();if(wrap.firstElementChild)old.replaceWith(wrap.firstElementChild);});
 }
 function viewHome(){
   const v=$("view");if(!STOCKS.length){v.innerHTML='<div class="home mx-auto max-w-5xl space-y-4">'+vnIndexSection()+emptyData()+'</div>';loadVnIndex(false);return;}
@@ -1499,23 +1548,10 @@ function viewHome(){
   h+='<div id="mcard" class="'+card+' mcard p-4">'+marketCard()+'</div>';
   h+='<div class="qa" role="group" aria-label="Lối tắt">'+[["scr","Tầm soát",'data-tab="scr"'],["star","Theo dõi",'data-home="watch"'],["val","Định giá",'data-step="2"'],["ana","Kỹ thuật",'data-step="3"'],["news","Tin tức",'data-step="4"']].map(x=>'<button type="button" '+x[2]+'><i>'+ico(x[0])+'</i>'+x[1]+'</button>').join("")+'</div>';
   h+='<section class="'+card+' p-4" aria-labelledby="hs"><div class="flex items-end justify-between gap-2"><div><h2 id="hs" class="text-base font-semibold">Bản đồ nhiệt</h2><p class="text-xs text-muted">Màu theo % trong phiên. Chạm mã để xem, chạm tên ngành để lọc.</p></div></div><div id="heatbox" class="mt-3">'+hmHtml()+'</div></section>';
-  /* Theo dõi */
-  const W=D.watch.map(x=>SMAP.get(x)).filter(Boolean);
-  h+='<section class="'+card+' p-4" aria-labelledby="hw"><div class="flex items-center justify-between gap-2"><h2 id="hw" class="text-base font-semibold">Theo dõi của ông</h2>'+(W.length?'<button type="button" data-home="watch" class="text-xs text-brass underline">Xem tất cả</button>':'')+'</div>'+
-    (W.length?'<ul class="mt-1 divide-y divide-line/70">'+W.slice(0,8).map(s=>{const c=s.changePct;return'<li class="flex items-center"><button type="button" data-pick="'+esc(s.t)+'" class="flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="flex items-center gap-1.5"><b>'+esc(s.t)+'</b>'+exTag(s)+'</span><span class="block truncate text-[11px] text-muted">'+esc(s.name||"")+'</span></span><span class="hidden min-[400px]:inline-flex">'+spark(s)+'</span><span class="w-16 shrink-0 text-right font-mono text-sm">'+vnd(s.price)+'</span>'+chgChip(c)+'</button>'+starBtn(s.t)+'</li>';}).join("")+'</ul>':
-    '<p class="mt-2 text-sm text-muted">Chưa có mã nào. Chạm ngôi sao cạnh mã ở màn Tầm soát để thêm vào đây.</p><button type="button" data-step="1" class="'+BTN+' mt-3">Sang Tầm soát</button>')+'</section>';
-  /* Cần chú ý */
-  const A=attention();
-  h+='<section class="'+card+' p-4" aria-labelledby="ha"><h2 id="ha" class="text-base font-semibold">Hôm nay cần chú ý</h2>'+
-    (A.length?'<ul class="mt-1 divide-y divide-line/70">'+A.map(x=>'<li><button type="button" data-pick="'+esc(x.t)+'" class="flex w-full min-w-0 items-start gap-2.5 py-2.5 text-left"><i class="mt-1.5 h-2 w-2 shrink-0 rounded-full '+DOT[x.tone]+'"></i><span class="min-w-0 text-sm"><b>'+esc(x.t)+'</b>'+(x.watch?' <span class="rounded bg-brass-soft px-1 text-[10px] text-brass">theo dõi</span>':'')+' '+esc(x.text)+'</span></button></li>').join("")+'</ul>':'<p class="mt-2 text-sm text-muted">Chưa có mã nào có tín hiệu nổi bật.</p>')+
-    '<p class="mt-2 text-[11px] text-muted">Tự rút ra từ báo cáo và đường giá, ưu tiên mã ông theo dõi. Chỉ là gợi ý để xem trước, không phải khuyến nghị.</p></section>';
-  /* Rẻ mà tốt */
-  const C=cheapGood();
-  h+='<section class="'+card+' p-4" aria-labelledby="hc"><h2 id="hc" class="text-base font-semibold">Rẻ mà chất lượng tốt</h2><p class="text-xs text-muted">Giá thấp hơn mức hợp lý từ 15%, điểm chất lượng từ 60, không có cảnh báo lãi.</p>'+
-    (C.length?'<ul class="mt-1 divide-y divide-line/70">'+C.map(x=>'<li><button type="button" data-pick="'+esc(x.s.t)+'" class="flex w-full min-w-0 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="block font-semibold">'+esc(x.s.t)+'</span><span class="block truncate text-[11px] text-muted">'+esc(x.s.name||"")+(x.q!=null?' · chất lượng '+nv(x.q,0)+'/100':'')+'</span></span><span class="shrink-0 rounded px-1.5 py-1 font-mono text-xs bg-up-soft text-up">An toàn '+signedPct(x.mos,0)+'</span></button></li>').join("")+'</ul>':'<p class="mt-2 text-sm text-muted">Chưa có mã nào đủ cả hai điều kiện lúc này.</p>')+'</section>';
+  h+=homeWatchHtml()+homeAttentionHtml()+homeCheapHtml();
   /* Biến động */
   h+='<div id="movers"></div>';
-  v.innerHTML=h+'</div>';renderBoardBody();loadBoardQuotes(false);loadVnIndex(false);
+  v.innerHTML=h+'</div>';renderBoardBody();loadBoardQuotes(false);
 }
 
 /* =================== Biến động trong ngày (top tăng, giảm theo sàn) =================== */
@@ -1537,7 +1573,7 @@ function moversHtml(){
 }
 function renderMovers(){const el=$("movers");if(el)el.innerHTML=moversHtml();}
 async function loadMovers(force){
-  const ex=MV.ex;if(MV.busy)return;if(!force&&MV.at[ex]&&Date.now()-MV.at[ex]<45000)return;
+  const ex=MV.ex;if((D.step===0&&BOARD.busy)||MV.busy)return;if(!force&&MV.at[ex]&&Date.now()-MV.at[ex]<45000)return;
   MV.busy=true;MV.err="";renderMovers();
   try{const j=await wkGet("/movers?ex="+ex+"&n=10",90000);MV.d[ex]=j;MV.at[ex]=Date.now();}
   catch(e){const m=String(e&&e.message||e);MV.err=/không có đường dẫn/.test(m)?"Worker chưa có chức năng này. Dán worker.js mới vào Cloudflare rồi bấm Deploy.":"Chưa lấy được số liệu: "+m.slice(0,140);}
@@ -2194,8 +2230,8 @@ function matchPreset(){const d=defaultFilters(),F=D.F;const base=k=>k!=="query"&
 document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.tagName==="DETAILS"&&d.dataset&&d.dataset.k)VT.open[d.dataset.k]=d.open;},true);
 document.addEventListener("click",e=>{
   const g=s=>e.target.closest(s);let x;
-  if((x=g("[data-board-ex]"))){BOARD.ex=x.dataset.boardEx;BOARD.page=0;BOARD.err="";viewHome();return;}
-  if((x=g("[data-board-page]"))){const pages=Math.max(1,Math.ceil(boardList().length/BOARD.pageSize));BOARD.page=Math.max(0,Math.min(pages-1,BOARD.page+Number(x.dataset.boardPage)));viewHome();return;}
+  if((x=g("[data-board-ex]"))){BOARD.ex=x.dataset.boardEx;BOARD.page=0;BOARD.err="";renderBoard();loadBoardQuotes(false);return;}
+  if((x=g("[data-board-page]"))){const pages=Math.max(1,Math.ceil(boardList().length/BOARD.pageSize));BOARD.page=Math.max(0,Math.min(pages-1,BOARD.page+Number(x.dataset.boardPage)));renderBoardBody();loadBoardQuotes(false);return;}
   if(g("[data-board-refresh]")){loadBoardQuotes(true);return;}
   if((x=g("[data-vni-range]"))){VNI.range=+x.dataset.vniRange;paintVnIndex();return;}
   if(g("[data-vni-refresh]")){loadVnIndex(true);return;}
@@ -2285,11 +2321,11 @@ let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>
   rebuild();renderAll();
   await loadFiles();rebuild();
   if(D.sel&&!SMAP.has(D.sel))D.sel=null;D.step=0;
-  renderAll();hideSplash();playEnter($("view"));hmLoadCache();refreshHeat(true);loadHeatmap(true);if(D.step>1&&D.sel)await selectStock(D.sel,false);refreshLive();
-  setInterval(()=>{if(!document.hidden)refreshLive();},20000);
+  renderAll();hideSplash();playEnter($("view"));hmLoadCache();paintHeat();if(D.step>1&&D.sel)await selectStock(D.sel,false);
+  setInterval(()=>{if(!document.hidden){if(D.step===0)loadBoardQuotes(false);else refreshLive();}},20000);
   setInterval(()=>{refreshHeat();if(D.step===0)loadHeatmap();},5000);
   setInterval(()=>{profFill();},5000);
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden){refreshHeat(true);loadHeatmap();if(D.step===0)loadVnIndex(true);}});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden){if(D.step===0){loadBoardQuotes(true);loadVnIndex(true);}else{refreshHeat(true);loadHeatmap();}}});
   if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
 
