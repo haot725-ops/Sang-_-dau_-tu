@@ -12,6 +12,7 @@
  *   /heatmap?ex=HOSE&n=150        bản đồ nhiệt cả sàn                   -> {ex,at,basis,capSrc,rows:[[mã,giá,%,giá trị khớp,vốn hóa tỷ]]}
  *   /profile?symbols=FPT,HPG      ngành và số cổ phiếu lưu hành từ Vietstock A-Z (tối đa 30 mã), dự phòng TCBS/VNDirect -> {rows:[[mã,ngành,số cổ phiếu]]}
  *   /news                          tiêu đề tin chứng khoán Vietstock RSS, chỉ gồm ngày và link bài gốc
+ *   /vnindex                       giá gần nhất và 130 nến ngày VN-Index từ biểu đồ DNSE
  *   /caps?probe=1                 kiểm tra nguồn vốn hóa (để chẩn đoán)
  * Các nguồn là API không chính thức, có thể đổi hoặc chặn bất cứ lúc nào.
  */
@@ -80,6 +81,47 @@ async function quotes(symbols) {
     return { t: String(x.sym).toUpperCase(), price, ref, change: ref ? price - ref : null, changePct: ref ? ((price - ref) / ref) * 100 : null, vol: num(x.lot) };
   }).filter(Boolean);
 }
+
+function dnseIndexBars(js) {
+  if (!js || !Array.isArray(js.t) || !Array.isArray(js.c)) return [];
+  return js.t.map((t, i) => {
+    const ts = num(t), c = num(js.c[i]);
+    return ts && c > 0 ? { t: ts, d: ymd(ts), c } : null;
+  }).filter(Boolean).sort((a, b) => a.t - b.t);
+}
+
+async function vnIndex() {
+  const now = Math.floor(Date.now() / 1000), base = "https://services.entrade.com.vn/chart-api/v2/ohlcs/index?symbol=VNINDEX";
+  const dailyUrl = `${base}&from=${now - 280 * 86400}&to=${now + 86400}&resolution=1D`;
+  const minuteUrl = `${base}&from=${now - 7 * 86400}&to=${now + 86400}&resolution=1`;
+  const [dailyRes, minuteRes] = await Promise.all([
+    fetch(dailyUrl, { headers: UA }),
+    fetch(minuteUrl, { headers: UA }).catch(() => null),
+  ]);
+  if (!dailyRes.ok) throw new Error("DNSE lịch sử chỉ số trả " + dailyRes.status);
+  const daily = dnseIndexBars(await dailyRes.json());
+  if (daily.length < 2) throw new Error("DNSE chưa trả đủ nến VN-Index");
+  let minute = [];
+  if (minuteRes && minuteRes.ok) {
+    try { minute = dnseIndexBars(await minuteRes.json()); } catch (_) {}
+  }
+  const lastDaily = daily[daily.length - 1], priorDaily = daily[daily.length - 2];
+  const lastMinute = minute[minute.length - 1];
+  let price = lastDaily.c, prevClose = priorDaily.c, at = lastDaily.t, asof = lastDaily.d;
+  if (lastMinute && lastMinute.d >= lastDaily.d) {
+    price = lastMinute.c; at = lastMinute.t; asof = lastMinute.d;
+    if (lastMinute.d > lastDaily.d) { prevClose = lastDaily.c; daily.push(lastMinute); }
+    else daily[daily.length - 1].c = price;
+  }
+  const change = price - prevClose;
+  return {
+    symbol: "VNINDEX", source: "DNSE", price, prevClose, change,
+    changePct: prevClose ? change / prevClose * 100 : null,
+    asof, at: new Date(at * 1000).toISOString(),
+    bars: daily.slice(-130).map(({ d, c }) => ({ d, c })),
+  };
+}
+
 async function universe(ctx) {
   return JSON.parse(await cached(ctx, "u/all", 86400, async () => {
     const r = await fetch(SITE + "universe.json", { headers: UA });
@@ -395,6 +437,7 @@ export default {
         return send({ src: c.src, count: Object.keys(c.map).length, tries: c.dbg });
       }
       if (path === "/news") return send(await cached(ctx, "news/vietstock-securities", 300, vietstockNews));
+      if (path === "/vnindex") return send(await cached(ctx, "vni/current", 30, vnIndex));
       const sym = (u.searchParams.get("symbol") || "").toUpperCase();
       if (!/^[A-Z0-9]{2,10}$/.test(sym)) return send({ error: "symbol không hợp lệ" }, 400);
       if (path === "/history") return send(await cached(ctx, "h/" + sym, 1800, () => history(sym)));

@@ -1292,6 +1292,44 @@ const card="rounded-lg border border-line bg-card";
 const WD=["Chủ nhật","Thứ hai","Thứ ba","Thứ tư","Thứ năm","Thứ sáu","Thứ bảy"];
 function marketState(){const t=vnNow(),dow=t.getUTCDay(),m=t.getUTCHours()*60+t.getUTCMinutes();
   if(dow===0||dow===6)return["Cuối tuần, thị trường nghỉ",0];if(m<9*60)return["Chưa mở phiên",0];if(m<=11*60+30)return["Đang giao dịch",1];if(m<13*60)return["Nghỉ trưa",0];if(m<=14*60+45)return["Đang giao dịch",1];if(m<=15*60)return["Khớp lệnh đóng cửa",1];return["Đã đóng cửa",0];}
+const VNI={range:22,data:null,loadedAt:0,busy:false,err:""};
+function vnIndexChart(){
+  const d=VNI.data,rows=(d&&Array.isArray(d.bars)?d.bars:[]).filter(x=>x&&Number.isFinite(+x.c)&&+x.c>0).slice(-VNI.range);
+  if(rows.length<2)return'<div class="mt-3 flex h-36 items-center justify-center rounded-md bg-paper text-sm text-muted">'+(VNI.busy?'Đang tải biểu đồ…':'Chưa có đủ dữ liệu để vẽ biểu đồ.')+'</div>';
+  const W=720,H=160,lo=Math.min(...rows.map(x=>+x.c)),hi=Math.max(...rows.map(x=>+x.c)),r=hi-lo||1;
+  const pts=rows.map((x,i)=>[i/(rows.length-1)*W,8+(1-(+x.c-lo)/r)*(H-18)]);
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' '),color=d.change>=0?'#0f6a38':'#8e2e28';
+  return'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" class="mt-3 block h-36 w-full" role="img" aria-label="Biểu đồ VN-Index trong '+(VNI.range===22?'1 tháng':VNI.range===66?'3 tháng':'6 tháng')+'">'+
+    '<defs><linearGradient id="vniFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+color+'" stop-opacity=".22"/><stop offset="1" stop-color="'+color+'" stop-opacity="0"/></linearGradient></defs>'+[.25,.5,.75].map(y=>'<line x1="0" y1="'+(H*y).toFixed(0)+'" x2="'+W+'" y2="'+(H*y).toFixed(0)+'" stroke="#e7e1d7" stroke-width="1"/>').join('')+
+    '<path d="'+line+' L'+W+' '+H+' L0 '+H+' Z" fill="url(#vniFill)"/><path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg><div class="flex justify-between text-[10px] text-muted"><span>'+dmy(rows[0].d)+'</span><span>'+dmy(rows[rows.length-1].d)+'</span></div>';
+}
+function vnIndexBody(){
+  const d=VNI.data,good=d&&d.change>=0,changeClass=!d?'text-muted':good?'text-up':'text-down',pillClass=!d?'bg-line text-muted':good?'bg-up-soft text-up':'bg-down-soft text-down';
+  const changeText=d?(d.change>=0?'+':'−')+nv(Math.abs(d.change),2)+' điểm':'—';
+  const at=d&&d.at?new Date(d.at).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Ho_Chi_Minh'}):'';
+  const ranges=[[22,'1 tháng'],[66,'3 tháng'],[130,'6 tháng']];
+  return'<div class="flex items-start justify-between gap-3"><div><h2 id="vnindexTitle" class="text-base font-semibold">VN-Index</h2><p class="text-xs text-muted">Chỉ số thị trường HOSE</p></div><button type="button" data-vni-refresh class="'+BTN+' shrink-0 px-2.5 py-1.5 text-xs">'+(VNI.busy?'Đang tải…':'Làm mới')+'</button></div>'+
+    '<div class="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2"><div class="min-w-0"><div class="big cnt font-mono '+changeClass+'">'+(d?nv(d.price,2):'—')+'</div><div class="mt-1.5 flex flex-wrap items-center gap-2"><span class="rounded-md px-1.5 py-0.5 font-mono text-sm font-semibold '+pillClass+'">'+(d?signedPct(d.changePct,2):'—')+'</span><span class="font-mono text-xs '+changeClass+'">'+changeText+'</span></div></div><div class="text-right text-[11px] text-muted">'+(d?'Nến gần nhất '+dmy(d.asof)+(at?' · '+at:''):(VNI.busy?'Đang tải dữ liệu…':'Chưa có dữ liệu'))+'</div></div>'+
+    '<div class="mt-3 flex gap-1 rounded-full bg-paper p-0.5" role="group" aria-label="Khoảng thời gian VN-Index">'+ranges.map(([n,l])=>'<button type="button" data-vni-range="'+n+'" aria-pressed="'+(VNI.range===n)+'" class="h-7 rounded-full px-2.5 text-xs '+(VNI.range===n?'bg-ink text-paper':'text-muted hover:bg-line')+'">'+l+'</button>').join('')+'</div>'+
+    vnIndexChart()+(VNI.err?'<p class="mt-2 rounded-md bg-down-soft p-2 text-xs text-down">'+esc(VNI.err)+'</p>':'')+
+    '<p class="mt-2 text-[11px] leading-snug text-muted">Nguồn biểu đồ DNSE; giá theo nến chỉ số gần nhất, có thể trễ hoặc thay đổi từ nhà cung cấp. Dữ liệu tham khảo, không phải giá khớp lệnh.</p>';
+}
+function vnIndexSection(){return'<section id="vnindexCard" class="'+card+' p-4" aria-labelledby="vnindexTitle">'+vnIndexBody()+'</section>';}
+function paintVnIndex(){const e=$('vnindexCard');if(e)e.innerHTML=vnIndexBody();}
+async function loadVnIndex(force){
+  if(D.step!==0||VNI.busy||document.hidden)return;
+  const wait=marketOpen()?30000:300000;if(!force&&VNI.loadedAt&&Date.now()-VNI.loadedAt<wait)return;
+  VNI.busy=true;VNI.err='';paintVnIndex();
+  try{
+    if(!wk())throw new Error('Chưa cấu hình Worker để tải dữ liệu VN-Index.');
+    const j=await wkGet('/vnindex',30000);
+    if(!j||!Number.isFinite(+j.price)||!Array.isArray(j.bars))throw new Error('Worker trả dữ liệu VN-Index không hợp lệ');
+    VNI.data=j;VNI.loadedAt=Date.now();
+  }catch(e){
+    const m=String(e&&e.message||e),msg=/không có đường dẫn/i.test(m)?'Worker chưa có endpoint /vnindex; cần triển khai bản Worker mới.':'Chưa tải được VN-Index: '+m.slice(0,130);
+    VNI.err=VNI.data?'Chưa cập nhật được; đang giữ dữ liệu lần gần nhất. '+msg:msg;VNI.loadedAt=Date.now();
+  }finally{VNI.busy=false;if(D.step===0)paintVnIndex();}
+}
 function spark(s,n=30){const b=(s.bars||[]).slice(-n).map(x=>x.close).filter(x=>x>0);if(b.length<5)return'<span class="inline-block h-6 w-16"></span>';
   const lo=Math.min(...b),hi=Math.max(...b),W=64,H=24,r=hi-lo||1,pts=b.map((x,i)=>(i/(b.length-1)*W).toFixed(1)+","+(H-2-(x-lo)/r*(H-4)).toFixed(1)).join(" "),up=b[b.length-1]>=b[0];
   return'<svg viewBox="0 0 '+W+' '+H+'" class="h-6 w-16 shrink-0" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="'+(up?"#0f6a38":"#8e2e28")+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';}
@@ -1450,12 +1488,13 @@ async function loadNews(force){
   finally{NEWS.busy=false;if(D.step===4)viewNews();}
 }
 function viewHome(){
-  const v=$("view");if(!STOCKS.length){v.innerHTML=emptyData();return;}
+  const v=$("view");if(!STOCKS.length){v.innerHTML='<div class="home mx-auto max-w-5xl space-y-4">'+vnIndexSection()+emptyData()+'</div>';loadVnIndex(false);return;}
   const t=vnNow(),[ms,on]=marketState(),P=STOCKS.filter(s=>s.price&&s.changePct!=null),up=P.filter(s=>s.changePct>0).length,dn=P.filter(s=>s.changePct<0).length,avg=P.length?P.reduce((a,s)=>a+s.changePct,0)/P.length:null;
   const best=[...P].sort((a,b)=>b.changePct-a.changePct)[0],worst=[...P].sort((a,b)=>a.changePct-b.changePct)[0];
   const dates=STOCKS.map(s=>s.asof).filter(Boolean).sort(),last=dates.length?dates[dates.length-1]:null;
   let h='<div class="home mx-auto max-w-5xl space-y-4">';
   h+='<div class="flex flex-wrap items-end justify-between gap-2"><div><p class="text-xs font-semibold uppercase tracking-[.16em] text-brass">Thị trường Việt Nam</p><h1 class="mt-1 text-2xl font-bold">Bảng giá</h1></div><span class="text-xs text-muted">'+(UNIVERSE_INFO?UNIVERSE_INFO.count.toLocaleString("vi-VN"):STOCKS.length.toLocaleString("vi-VN"))+' mã trong danh sách</span></div>';
+  h+=vnIndexSection();
   h+=boardHtml();
   h+='<div id="mcard" class="'+card+' mcard p-4">'+marketCard()+'</div>';
   h+='<div class="qa" role="group" aria-label="Lối tắt">'+[["scr","Tầm soát",'data-tab="scr"'],["star","Theo dõi",'data-home="watch"'],["val","Định giá",'data-step="2"'],["ana","Kỹ thuật",'data-step="3"'],["news","Tin tức",'data-step="4"']].map(x=>'<button type="button" '+x[2]+'><i>'+ico(x[0])+'</i>'+x[1]+'</button>').join("")+'</div>';
@@ -1476,7 +1515,7 @@ function viewHome(){
     (C.length?'<ul class="mt-1 divide-y divide-line/70">'+C.map(x=>'<li><button type="button" data-pick="'+esc(x.s.t)+'" class="flex w-full min-w-0 items-center gap-3 py-2.5 text-left"><span class="min-w-0 flex-1"><span class="block font-semibold">'+esc(x.s.t)+'</span><span class="block truncate text-[11px] text-muted">'+esc(x.s.name||"")+(x.q!=null?' · chất lượng '+nv(x.q,0)+'/100':'')+'</span></span><span class="shrink-0 rounded px-1.5 py-1 font-mono text-xs bg-up-soft text-up">An toàn '+signedPct(x.mos,0)+'</span></button></li>').join("")+'</ul>':'<p class="mt-2 text-sm text-muted">Chưa có mã nào đủ cả hai điều kiện lúc này.</p>')+'</section>';
   /* Biến động */
   h+='<div id="movers"></div>';
-  v.innerHTML=h+'</div>';renderBoardBody();loadBoardQuotes(false);
+  v.innerHTML=h+'</div>';renderBoardBody();loadBoardQuotes(false);loadVnIndex(false);
 }
 
 /* =================== Biến động trong ngày (top tăng, giảm theo sàn) =================== */
@@ -1505,6 +1544,7 @@ async function loadMovers(force){
   finally{MV.busy=false;renderMovers();}
 }
 setInterval(()=>{if(D.step===0&&!document.hidden&&$("movers")&&marketOpen())loadMovers();},60000);
+setInterval(()=>{if(D.step===0&&!document.hidden)loadVnIndex(false);},60000);
 
 function emptyData(){
   return'<div class="'+card+' p-6 text-center"><h2 class="text-lg font-semibold">Chưa có số liệu</h2><p class="mx-auto mt-2 max-w-md text-sm text-muted">Sàng chạy bằng báo cáo CafeF và giá lấy từ máy chủ trung gian. Hãy chạy GitHub Action một lần để có thư mục data, hoặc thêm mã trực tiếp bằng Worker.</p><div class="mt-4 flex flex-wrap justify-center gap-2"><button type="button" data-act="settings" class="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper">Mở phần dữ liệu</button></div></div>';
@@ -2157,6 +2197,8 @@ document.addEventListener("click",e=>{
   if((x=g("[data-board-ex]"))){BOARD.ex=x.dataset.boardEx;BOARD.page=0;BOARD.err="";viewHome();return;}
   if((x=g("[data-board-page]"))){const pages=Math.max(1,Math.ceil(boardList().length/BOARD.pageSize));BOARD.page=Math.max(0,Math.min(pages-1,BOARD.page+Number(x.dataset.boardPage)));viewHome();return;}
   if(g("[data-board-refresh]")){loadBoardQuotes(true);return;}
+  if((x=g("[data-vni-range]"))){VNI.range=+x.dataset.vniRange;paintVnIndex();return;}
+  if(g("[data-vni-refresh]")){loadVnIndex(true);return;}
   if(g("[data-news-refresh]")){loadNews(true);return;}
   if((x=g("[data-watch]"))){e.stopPropagation();const t=x.dataset.watch,i=D.watch.indexOf(t);if(i<0)D.watch.push(t);else D.watch.splice(i,1);saveDesk();if(D.step===1)renderRes();else renderView();return;}
   if((x=g("[data-home]"))){D.F=defaultFilters();D.F.preset="watch";D.F.watchOnly=true;go(1);return;}
@@ -2247,7 +2289,7 @@ let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>
   setInterval(()=>{if(!document.hidden)refreshLive();},20000);
   setInterval(()=>{refreshHeat();if(D.step===0)loadHeatmap();},5000);
   setInterval(()=>{profFill();},5000);
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden){refreshHeat(true);loadHeatmap();}});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden){refreshHeat(true);loadHeatmap();if(D.step===0)loadVnIndex(true);}});
   if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
 
